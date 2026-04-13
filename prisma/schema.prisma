@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== MULTI-TENANT ====================
+
+model Store {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  phone     String?
+  email     String?
+  address   String?
+  logo      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users      User[]
+  products   Product[]
+  customers  Customer[]
+  sales      Sale[]
+  categories Category[]
+
+  @@map("stores")
+}
+
+// ==================== USUÁRIOS ====================
+
+enum UserRole {
+  ADMIN
+  SELLER
+  CUSTOMER
+}
+
+model User {
+  id         String   @id @default(uuid())
+  supabaseId String   @unique @map("supabase_id")
+  email      String
+  name       String
+  role       UserRole @default(SELLER)
+  storeId    String   @map("store_id")
+  customerId String?  @unique @map("customer_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  store    Store     @relation(fields: [storeId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  sales    Sale[]
+
+  @@map("users")
+}
+
+// ==================== CATEGORIAS ====================
+
+model Category {
+  id      String @id @default(uuid())
+  name    String
+  storeId String @map("store_id")
+
+  store    Store     @relation(fields: [storeId], references: [id])
+  products Product[]
+
+  @@unique([name, storeId])
+  @@map("categories")
+}
+
+// ==================== PRODUTOS ====================
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  barcode     String?
+  image       String?
+  costPrice   Float    @map("cost_price")
+  salePrice   Float    @map("sale_price")
+  profitMargin Float   @map("profit_margin") // calculado: ((salePrice - costPrice) / costPrice) * 100
+  stock       Int      @default(0)
+  minStock    Int      @default(5) @map("min_stock") // alerta de estoque baixo
+  isActive    Boolean  @default(true) @map("is_active")
+  storeId     String   @map("store_id")
+  categoryId  String?  @map("category_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  store         Store          @relation(fields: [storeId], references: [id])
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  saleItems     SaleItem[]
+  stockMovements StockMovement[]
+
+  @@map("products")
+}
+
+// ==================== MOVIMENTAÇÃO DE ESTOQUE ====================
+
+enum MovementType {
+  IN      // entrada
+  OUT     // saída (venda)
+  ADJUST  // ajuste manual
+}
+
+model StockMovement {
+  id        String       @id @default(uuid())
+  productId String       @map("product_id")
+  type      MovementType
+  quantity  Int
+  reason    String?
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("stock_movements")
+}
+
+// ==================== CLIENTES ====================
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  cpf       String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?  @map("zip_code")
+  storeId   String   @map("store_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  store Store @relation(fields: [storeId], references: [id])
+  sales Sale[]
+  user  User?
+
+  @@map("customers")
+}
+
+// ==================== VENDAS ====================
+
+enum SaleStatus {
+  PENDING     // aguardando pagamento
+  PAID        // pago
+  PREPARING   // preparando entrega
+  DELIVERING  // em rota
+  DELIVERED   // entregue
+  CANCELLED   // cancelado
+}
+
+enum PaymentMethod {
+  CASH        // dinheiro
+  PIX
+  CREDIT_CARD // cartão crédito
+  DEBIT_CARD  // cartão débito
+  INSTALLMENT // fiado/crediário
+}
+
+model Sale {
+  id            String        @id @default(uuid())
+  code          String        @unique // código legível: VND-001
+  customerId    String        @map("customer_id")
+  sellerId      String        @map("seller_id")
+  storeId       String        @map("store_id")
+  subtotal      Float
+  discount      Float         @default(0)
+  total         Float
+  paymentMethod PaymentMethod @map("payment_method")
+  status        SaleStatus    @default(PENDING)
+  installmentDueDate DateTime? @map("installment_due_date") // data do fiado
+  notes         String?
+  deliveryAddress String?     @map("delivery_address")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  customer Customer   @relation(fields: [customerId], references: [id])
+  seller   User       @relation(fields: [sellerId], references: [id])
+  store    Store      @relation(fields: [storeId], references: [id])
+  items    SaleItem[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String @id @default(uuid())
+  saleId    String @map("sale_id")
+  productId String @map("product_id")
+  quantity  Int
+  unitPrice Float  @map("unit_price")
+  total     Float
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("sale_items")
+}
