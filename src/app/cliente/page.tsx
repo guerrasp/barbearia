@@ -1,48 +1,31 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { formatCurrency } from "@/lib/utils";
 import { ShoppingCart, Package, Clock, CheckCircle, Truck } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 
-// Dados mockados - pedidos da cliente
-const customerOrders = [
-  {
-    id: "1",
-    code: "VND-260401",
-    date: "13/04/2026",
-    status: "DELIVERED",
-    total: 249.9,
-    paymentMethod: "PIX",
-    items: [
-      { name: "Perfume 212 VIP", quantity: 1, unitPrice: 249.9, total: 249.9 },
-    ],
-  },
-  {
-    id: "2",
-    code: "VND-260398",
-    date: "08/04/2026",
-    status: "DELIVERING",
-    total: 159.7,
-    paymentMethod: "Cartão de Crédito",
-    deliveryAddress: "Rua das Flores, 123 - São Paulo/SP",
-    items: [
-      { name: "Creme Hidratante Nivea 400ml", quantity: 2, unitPrice: 34.9, total: 69.8 },
-      { name: "Batom MAC Ruby Woo", quantity: 1, unitPrice: 89.9, total: 89.9 },
-    ],
-  },
-  {
-    id: "3",
-    code: "VND-260385",
-    date: "01/04/2026",
-    status: "DELIVERED",
-    total: 45.9,
-    paymentMethod: "Dinheiro",
-    items: [
-      { name: "Kit Shampoo + Condicionador Pantene", quantity: 1, unitPrice: 45.9, total: 45.9 },
-    ],
-  },
-];
+interface SaleItem {
+  id: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  product: { name: string };
+}
+
+interface Sale {
+  id: string;
+  code: string;
+  total: number;
+  paymentMethod: string;
+  status: string;
+  deliveryAddress: string | null;
+  createdAt: string;
+  items: SaleItem[];
+}
 
 const statusConfig: Record<string, { label: string; variant: "success" | "info" | "warning" | "danger" | "default"; icon: typeof CheckCircle }> = {
   PENDING: { label: "Aguardando Pagamento", variant: "warning", icon: Clock },
@@ -50,24 +33,51 @@ const statusConfig: Record<string, { label: string; variant: "success" | "info" 
   PREPARING: { label: "Preparando", variant: "info", icon: Package },
   DELIVERING: { label: "Em Rota de Entrega", variant: "info", icon: Truck },
   DELIVERED: { label: "Entregue", variant: "success", icon: CheckCircle },
+  CANCELLED: { label: "Cancelado", variant: "danger", icon: Clock },
+};
+
+const paymentLabels: Record<string, string> = {
+  CASH: "Dinheiro",
+  PIX: "PIX",
+  CREDIT_CARD: "Cartão de Crédito",
+  DEBIT_CARD: "Cartão de Débito",
+  INSTALLMENT: "Fiado",
 };
 
 export default function ClientePortal() {
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.storeId || !user?.customerId) {
+      setLoading(false);
+      return;
+    }
+    api
+      .get<Sale[]>(`/vendas?storeId=${user.storeId}&customerId=${user.customerId}`)
+      .then(setOrders)
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  const firstName = user?.name?.split(" ")[0] || "Cliente";
+  const inProgressCount = orders.filter((o) => !["DELIVERED", "CANCELLED"].includes(o.status)).length;
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Olá, Maria!</h2>
+        <h2 className="text-2xl font-bold text-foreground">Olá, {firstName}!</h2>
         <p className="text-muted text-sm mt-1">Acompanhe seus pedidos abaixo</p>
       </div>
 
-      {/* Resumo */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="!p-4">
           <div className="flex items-center gap-3">
             <ShoppingCart className="w-5 h-5 text-primary" />
             <div>
               <p className="text-xs text-muted">Total de Pedidos</p>
-              <p className="text-xl font-bold">{customerOrders.length}</p>
+              <p className="text-xl font-bold">{orders.length}</p>
             </div>
           </div>
         </Card>
@@ -76,27 +86,35 @@ export default function ClientePortal() {
             <Truck className="w-5 h-5 text-blue-500" />
             <div>
               <p className="text-xs text-muted">Em Andamento</p>
-              <p className="text-xl font-bold">{customerOrders.filter((o) => !["DELIVERED", "CANCELLED"].includes(o.status)).length}</p>
+              <p className="text-xl font-bold">{inProgressCount}</p>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Lista de pedidos */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-foreground">Meus Pedidos</h3>
 
-        {customerOrders.map((order) => {
-          const status = statusConfig[order.status];
+        {loading && <p className="text-muted text-sm text-center py-8">Carregando pedidos...</p>}
+
+        {!loading && orders.length === 0 && (
+          <Card className="text-center py-10">
+            <Package className="w-10 h-10 text-muted mx-auto mb-3" />
+            <p className="text-muted">Você ainda não fez nenhum pedido.</p>
+          </Card>
+        )}
+
+        {!loading && orders.map((order) => {
+          const status = statusConfig[order.status] || statusConfig.PENDING;
           const StatusIcon = status.icon;
+          const dateStr = new Date(order.createdAt).toLocaleDateString("pt-BR");
 
           return (
             <Card key={order.id} className="!p-0 overflow-hidden">
-              {/* Header do pedido */}
               <div className="flex items-center justify-between p-4 bg-background border-b border-border">
                 <div>
                   <p className="font-mono text-sm font-bold">{order.code}</p>
-                  <p className="text-xs text-muted">{order.date}</p>
+                  <p className="text-xs text-muted">{dateStr}</p>
                 </div>
                 <Badge variant={status.variant}>
                   <StatusIcon className="w-3 h-3 mr-1" />
@@ -104,12 +122,11 @@ export default function ClientePortal() {
                 </Badge>
               </div>
 
-              {/* Itens */}
               <div className="p-4 space-y-2">
-                {order.items.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
+                {order.items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between text-sm">
                     <div>
-                      <span className="font-medium">{item.name}</span>
+                      <span className="font-medium">{item.product.name}</span>
                       <span className="text-muted ml-2">x{item.quantity}</span>
                     </div>
                     <span className="font-medium">{formatCurrency(item.total)}</span>
@@ -117,13 +134,11 @@ export default function ClientePortal() {
                 ))}
               </div>
 
-              {/* Footer */}
               <div className="flex items-center justify-between p-4 border-t border-border bg-background/50">
-                <span className="text-sm text-muted">{order.paymentMethod}</span>
+                <span className="text-sm text-muted">{paymentLabels[order.paymentMethod] || order.paymentMethod}</span>
                 <span className="text-lg font-bold text-primary">{formatCurrency(order.total)}</span>
               </div>
 
-              {/* Status de entrega */}
               {order.status === "DELIVERING" && order.deliveryAddress && (
                 <div className="px-4 pb-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

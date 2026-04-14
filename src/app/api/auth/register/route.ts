@@ -31,10 +31,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = registerSchema.parse(body);
 
-    // 1. Criar usuário no Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.signUp({
+    // 1. Criar usuário no Supabase Auth (já confirmado, sem envio de email)
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
+      email_confirm: true,
     });
 
     if (authError) {

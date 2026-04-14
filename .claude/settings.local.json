@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3000/api/auth/register -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"oliveiraa.vi.santoss@gmail.com\",\"password\":\"126547\",\"name\":\"Vitoria Oliveira\",\"storeName\":\"Mulher do perfume\",\"role\":\"ADMIN\"}')",
+      "Bash(npx next:*)",
+      "Bash(taskkill //PID 18008 //F)"
     ]
   }
 }

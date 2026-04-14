@@ -227,17 +227,43 @@ export default function ClientesPage() {
       {/* Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingCustomer ? "Editar Cliente" : "Novo Cliente"} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input label="Nome Completo *" placeholder="Nome do cliente" error={errors.name?.message} {...register("name")} />
+          <Input label="Nome Completo *" placeholder="Nome do cliente" maxLength={100} error={errors.name?.message} {...register("name")} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Email" type="email" placeholder="email@exemplo.com" {...register("email")} />
-            <Input label="Telefone" placeholder="(11) 99999-9999" {...register("phone")} />
+            <Input label="Email" type="email" placeholder="email@exemplo.com" maxLength={100} {...register("email")} />
+            <Input
+              label="Telefone"
+              placeholder="(11) 99999-9999"
+              maxLength={11}
+              inputMode="numeric"
+              {...register("phone", {
+                onChange: (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 11); },
+              })}
+            />
           </div>
-          <Input label="CPF" placeholder="000.000.000-00" {...register("cpf")} />
-          <Input label="Endereço" placeholder="Rua, número, complemento" {...register("address")} />
+          <Input
+            label="CPF"
+            placeholder="00000000000"
+            maxLength={11}
+            inputMode="numeric"
+            {...register("cpf", {
+              onChange: (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 11); },
+            })}
+          />
+          <Input label="Endereço" placeholder="Rua, número, complemento" maxLength={200} {...register("address")} />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input label="Cidade" placeholder="São Paulo" {...register("city")} />
-            <Input label="Estado" placeholder="SP" {...register("state")} />
-            <Input label="CEP" placeholder="00000-000" {...register("zipCode")} />
+            <Input label="Cidade" placeholder="São Paulo" maxLength={60} {...register("city")} />
+            <Input label="Estado" placeholder="SP" maxLength={2} {...register("state", {
+              onChange: (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2); },
+            })} />
+            <Input
+              label="CEP"
+              placeholder="00000000"
+              maxLength={8}
+              inputMode="numeric"
+              {...register("zipCode", {
+                onChange: (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 8); },
+              })}
+            />
           </div>
           <div className="flex gap-3 pt-4 border-t border-border">
             <Button type="submit" className="flex-1">{editingCustomer ? "Salvar Alterações" : "Cadastrar Cliente"}</Button>
