@@ -341,13 +341,48 @@ export default function VendasPage() {
               ))}
             </div>
             <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
-              <Button variant="secondary" size="sm" onClick={() => toast.success("Cupom gerado!")}><Printer className="w-4 h-4" /> Imprimir</Button>
-              <Button variant="success" size="sm" onClick={() => {
-                const msg = `Olá ${selectedSale.customer.name}! Segue o comprovante da compra ${selectedSale.code} no valor de ${formatCurrency(selectedSale.total)}`;
-                const phone = selectedSale.customer.phone?.replace(/\D/g, "");
-                window.open(`https://wa.me/${phone ? `55${phone}` : ""}?text=${encodeURIComponent(msg)}`, "_blank");
-              }}><MessageCircle className="w-4 h-4" /> WhatsApp</Button>
-              <Button variant="secondary" size="sm" onClick={() => toast.success("Email enviado!")}><Mail className="w-4 h-4" /> Email</Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.open(`/comprovante/${selectedSale.id}`, "_blank")}
+              >
+                <Printer className="w-4 h-4" /> Imprimir / PDF
+              </Button>
+
+              <Button
+                variant="success"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const receipt = await api.get<{ text: string }>(`/vendas/${selectedSale.id}/whatsapp`);
+                    const phone = selectedSale.customer.phone?.replace(/\D/g, "");
+                    const url = `${window.location.origin}/comprovante/${selectedSale.id}`;
+                    const msg = `${receipt.text}\n\n📄 Ver comprovante: ${url}`;
+                    window.open(`https://wa.me/${phone ? `55${phone}` : ""}?text=${encodeURIComponent(msg)}`, "_blank");
+                  } catch {
+                    toast.error("Erro ao gerar mensagem");
+                  }
+                }}
+              >
+                <MessageCircle className="w-4 h-4" /> WhatsApp
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!selectedSale.customer.email}
+                onClick={async () => {
+                  const loading = toast.loading("Enviando email...");
+                  try {
+                    await api.post(`/vendas/${selectedSale.id}/email`, {});
+                    toast.success("Email enviado!", { id: loading });
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Erro ao enviar email", { id: loading });
+                  }
+                }}
+              >
+                <Mail className="w-4 h-4" /> {selectedSale.customer.email ? "Email" : "Sem email"}
+              </Button>
             </div>
           </div>
         )}
