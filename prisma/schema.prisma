@@ -119,6 +119,12 @@ model StockMovement {
 
 // ==================== CLIENTES ====================
 
+enum Gender {
+  MALE
+  FEMALE
+  NOT_SPECIFIED
+}
+
 model Customer {
   id        String   @id @default(uuid())
   name      String
@@ -129,6 +135,8 @@ model Customer {
   city      String?
   state     String?
   zipCode   String?  @map("zip_code")
+  birthDate DateTime? @map("birth_date")
+  gender    Gender?  @default(NOT_SPECIFIED)
   storeId   String   @map("store_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

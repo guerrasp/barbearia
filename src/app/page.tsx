@@ -95,10 +95,10 @@ export default function LoginPage() {
 
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <p className="text-center text-xs text-gray-400">
-                  Seu acesso é criado pela sua revendedora.
-                </p>
-                <p className="text-center text-xs text-gray-400 mt-1">
-                  Caso não tenha acesso, entre em contato com ela.
+                  Ainda não tem conta?{" "}
+                  <a href="/cadastro" className="text-blue-600 hover:text-blue-700 font-medium">
+                    Cadastre-se
+                  </a>
                 </p>
               </div>
             </>
