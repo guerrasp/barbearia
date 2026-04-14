@@ -4,18 +4,15 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { Store, Lock, Mail, ArrowRight, User, Building2 } from "lucide-react";
+import { Store, Lock, Mail, ArrowRight, User, ShieldCheck } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 export default function LoginPage() {
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [storeName, setStoreName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [loginType, setLoginType] = useState<"admin" | "customer">("admin");
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,21 +26,7 @@ export default function LoginPage() {
         window.location.href = "/admin";
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao fazer login");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      await register({ email, password, name, storeName });
-      toast.success("Conta criada! Faça login.");
-      setMode("login");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao registrar");
+      toast.error(err instanceof Error ? err.message : "Email ou senha inválidos");
     } finally {
       setIsLoading(false);
     }
@@ -59,30 +42,17 @@ export default function LoginPage() {
             <Store className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">Bella Gestão</h1>
-          <p className="text-purple-200 mt-2">Sistema de gestão para vendas de perfumes e beleza</p>
+          <p className="text-purple-200 mt-2">Acompanhe seus pedidos e compras</p>
         </div>
 
+        {/* Card de Login */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {mode === "login" ? (
+          {!showAdminLogin ? (
             <>
-              {/* Tabs admin/cliente */}
-              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg mb-6">
-                <button
-                  onClick={() => setLoginType("admin")}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                    loginType === "admin" ? "bg-white text-foreground shadow-sm" : "text-gray-500"
-                  }`}
-                >
-                  Administrador
-                </button>
-                <button
-                  onClick={() => setLoginType("customer")}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                    loginType === "customer" ? "bg-white text-foreground shadow-sm" : "text-gray-500"
-                  }`}
-                >
-                  Cliente
-                </button>
+              {/* Login do Cliente */}
+              <div className="flex items-center gap-2 mb-6">
+                <User className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold">Área do Cliente</h2>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
@@ -109,39 +79,23 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setMode("register")}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Não tem conta? Cadastre sua loja
-                </button>
-              </div>
+              <p className="text-center text-xs text-gray-400 mt-4">
+                Seu acesso é criado pela revendedora. Caso não tenha, entre em contato com ela.
+              </p>
             </>
           ) : (
             <>
-              <h2 className="text-lg font-semibold text-center mb-4">Criar Conta</h2>
-              <form onSubmit={handleRegister} className="space-y-4">
-                <Input
-                  label="Seu Nome"
-                  placeholder="Nome completo"
-                  icon={<User className="w-4 h-4" />}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-                <Input
-                  label="Nome da Loja"
-                  placeholder="Ex: Bella Perfumaria"
-                  icon={<Building2 className="w-4 h-4" />}
-                  value={storeName}
-                  onChange={(e) => setStoreName(e.target.value)}
-                  required
-                />
+              {/* Login do Admin */}
+              <div className="flex items-center gap-2 mb-6">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold">Administrador</h2>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
                 <Input
                   label="Email"
                   type="email"
-                  placeholder="seu@email.com"
+                  placeholder="admin@email.com"
                   icon={<Mail className="w-4 h-4" />}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -150,32 +104,36 @@ export default function LoginPage() {
                 <Input
                   label="Senha"
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="••••••••"
                   icon={<Lock className="w-4 h-4" />}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
                 />
                 <Button type="submit" isLoading={isLoading} className="w-full" size="lg">
-                  Criar Conta <ArrowRight className="w-4 h-4" />
+                  Entrar no Painel <ArrowRight className="w-4 h-4" />
                 </Button>
               </form>
-
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setMode("login")}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Já tem conta? Faça login
-                </button>
-              </div>
             </>
           )}
         </div>
 
-        <p className="text-center text-purple-300 text-xs mt-6">
-          Bella Gestão &copy; 2026 — Todos os direitos reservados
+        {/* Botão pequeno para alternar */}
+        <div className="text-center mt-4">
+          <button
+            onClick={() => {
+              setShowAdminLogin(!showAdminLogin);
+              setEmail("");
+              setPassword("");
+            }}
+            className="text-purple-300/60 text-xs hover:text-purple-200 transition-colors"
+          >
+            {showAdminLogin ? "← Voltar para área do cliente" : "Acesso administrativo"}
+          </button>
+        </div>
+
+        <p className="text-center text-purple-300/40 text-xs mt-6">
+          Bella Gestão &copy; 2026
         </p>
       </div>
     </div>

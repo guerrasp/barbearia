@@ -23,7 +23,6 @@ interface AuthContextType {
   store: Store | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ role: string }>;
-  register: (data: { email: string; password: string; name: string; storeName: string }) => Promise<void>;
   logout: () => void;
 }
 
@@ -35,7 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Recuperar sessão do localStorage
     const stored = localStorage.getItem("bella_user");
     if (stored) {
       try {
@@ -60,10 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { role: data.user.role };
   }, []);
 
-  const register = useCallback(async (data: { email: string; password: string; name: string; storeName: string }) => {
-    await api.post("/auth/register", data);
-  }, []);
-
   const logout = useCallback(() => {
     setUser(null);
     setStore(null);
@@ -72,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, store, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, store, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
