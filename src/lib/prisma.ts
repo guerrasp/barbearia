@@ -6,8 +6,11 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Usa DIRECT_URL (porta 5432) - o pooler retorna "Tenant or user not found"
-  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!;
+  // Em produção (Vercel serverless) usa o pooler; em dev usa conexão direta
+  const connectionString =
+    process.env.NODE_ENV === "production"
+      ? process.env.DATABASE_URL!
+      : (process.env.DIRECT_URL || process.env.DATABASE_URL!);
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
