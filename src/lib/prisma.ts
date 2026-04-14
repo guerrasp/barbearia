@@ -6,11 +6,8 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Em dev usa DIRECT_URL (porta 5432), em prod usa DATABASE_URL (pooler porta 6543)
-  const connectionString =
-    process.env.NODE_ENV === "production"
-      ? process.env.DATABASE_URL!
-      : (process.env.DIRECT_URL || process.env.DATABASE_URL!);
+  // Usa DIRECT_URL (porta 5432) - o pooler retorna "Tenant or user not found"
+  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!;
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
