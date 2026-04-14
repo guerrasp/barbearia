@@ -48,17 +48,14 @@ export default function CadastroPage() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
 
-  // Buscar a loja (por enquanto pega a primeira disponível)
+  // Buscar a loja pelo slug da URL ou pegar a primeira disponível
   useEffect(() => {
     const slug = new URLSearchParams(window.location.search).get("loja");
-    if (slug) {
-      api.get<StoreInfo>(`/stores?slug=${slug}`)
-        .then(setStoreInfo)
-        .catch(() => toast.error("Loja não encontrada"))
-        .finally(() => setLoadingStore(false));
-    } else {
-      setLoadingStore(false);
-    }
+    const url = slug ? `/stores?slug=${slug}` : "/stores";
+    api.get<StoreInfo>(url)
+      .then(setStoreInfo)
+      .catch(() => toast.error("Loja não encontrada"))
+      .finally(() => setLoadingStore(false));
   }, []);
 
   // Máscara de telefone
@@ -200,11 +197,6 @@ export default function CadastroPage() {
             </p>
           )}
           {loadingStore && <p className="text-blue-200/50 mt-1 text-sm">Carregando...</p>}
-          {!loadingStore && !storeInfo && (
-            <p className="text-red-300/80 mt-1 text-sm">
-              Acesse o link fornecido pela sua revendedora para se cadastrar.
-            </p>
-          )}
         </div>
 
         {/* Steps indicator */}

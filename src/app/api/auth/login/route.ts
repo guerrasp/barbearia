@@ -37,7 +37,9 @@ export async function POST(req: NextRequest) {
       user,
       session: authData.session,
     });
-  } catch {
-    return NextResponse.json({ error: "Erro ao fazer login" }, { status: 500 });
+  } catch (error) {
+    console.error("Erro no login:", error);
+    const message = error instanceof Error ? error.message : "Erro ao fazer login";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
