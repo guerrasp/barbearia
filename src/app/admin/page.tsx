@@ -30,11 +30,14 @@ const statusColor: Record<string, string> = {
   PAID: "text-emerald-600 bg-emerald-50",
   PENDING: "text-gray-600 bg-gray-50",
   CANCELLED: "text-red-600 bg-red-50",
+  REFUNDED: "text-red-600 bg-red-50",
+  EXCHANGED: "text-gray-600 bg-gray-100",
 };
 
 const statusLabel: Record<string, string> = {
   PENDING: "Pendente", PAID: "Pago", PREPARING: "Preparando",
   DELIVERING: "Em Rota", DELIVERED: "Entregue", CANCELLED: "Cancelado",
+  REFUNDED: "Estornado", EXCHANGED: "Troca",
 };
 
 export default function AdminDashboard() {

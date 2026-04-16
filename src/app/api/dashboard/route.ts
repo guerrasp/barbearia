@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
       where: {
         storeId,
         createdAt: { gte: startOfMonth },
-        status: { not: "CANCELLED" },
+        status: { notIn: ["CANCELLED", "REFUNDED", "EXCHANGED"] },
       },
       include: { items: true },
     }),
@@ -34,20 +34,16 @@ export async function GET(req: NextRequest) {
     prisma.product.count({ where: { storeId, isActive: true } }),
     // Total de clientes
     prisma.customer.count({ where: { storeId } }),
-    // Produtos com estoque baixo
-    prisma.product.findMany({
-      where: {
-        storeId,
-        isActive: true,
-        OR: [
-          { stock: 0 },
-          { stock: { lte: 5 } }, // usando valor fixo; idealmente comparar com minStock
-        ],
-      },
-      select: { id: true, name: true, stock: true, minStock: true },
-      orderBy: { stock: "asc" },
-      take: 10,
-    }),
+    // Produtos com estoque baixo (stock <= minStock)
+    prisma.$queryRaw<{ id: string; name: string; stock: number; min_stock: number }[]>`
+      SELECT id, name, stock, min_stock
+      FROM products
+      WHERE store_id = ${storeId}
+        AND is_active = true
+        AND stock <= min_stock
+      ORDER BY stock ASC
+      LIMIT 10
+    `,
     // Vendas recentes
     prisma.sale.findMany({
       where: { storeId },
@@ -63,12 +59,20 @@ export async function GET(req: NextRequest) {
   const revenue = monthlySales.reduce((sum, s) => sum + s.total, 0);
   const totalOrders = monthlySales.length;
 
+  // Normaliza snake_case do raw query para camelCase
+  const lowStockMapped = lowStockProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    stock: Number(p.stock),
+    minStock: Number(p.min_stock),
+  }));
+
   return NextResponse.json({
     revenue,
     totalOrders,
     totalProducts,
     totalCustomers,
-    lowStockProducts,
+    lowStockProducts: lowStockMapped,
     recentSales,
   });
 }

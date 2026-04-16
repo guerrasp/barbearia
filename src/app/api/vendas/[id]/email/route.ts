@@ -21,6 +21,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         seller: { select: { name: true } },
         store: true,
         items: { include: { product: true } },
+        payments: true,
       },
     });
 
