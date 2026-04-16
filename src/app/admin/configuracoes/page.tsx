@@ -1,12 +1,110 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { Store, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
+
+interface StoreData {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+}
 
 export default function ConfiguracoesPage() {
+  const { user, store } = useAuth();
+  const storeId = user?.storeId;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
+
+  useEffect(() => {
+    if (!storeId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.get<StoreData>(`/stores/${storeId}`);
+        if (cancelled) return;
+        setForm({
+          name: data.name || "",
+          phone: data.phone || "",
+          email: data.email || "",
+          address: data.address || "",
+        });
+      } catch (err) {
+        console.error(err);
+        toast.error("Não foi possível carregar as configurações.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!storeId) return;
+    if (!form.name.trim()) {
+      toast.error("Nome da loja é obrigatório");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await api.patch<StoreData>(`/stores/${storeId}`, {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        address: form.address.trim(),
+      });
+
+      // Atualiza localStorage para o AuthContext refletir o novo nome
+      try {
+        const stored = localStorage.getItem("bella_user");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.store) {
+            parsed.store.name = updated.name;
+            localStorage.setItem("bella_user", JSON.stringify(parsed));
+          }
+        }
+      } catch {}
+
+      toast.success("Configurações salvas!");
+      // força recarregar para atualizar sidebar com novo nome
+      if (store?.name !== updated.name) {
+        setTimeout(() => window.location.reload(), 600);
+      }
+    } catch (err) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "Erro ao salvar configurações";
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,62 +113,44 @@ export default function ConfiguracoesPage() {
       </div>
 
       <Card title="Dados da Loja" className="max-w-2xl">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            toast.success("Configurações salvas!");
-          }}
-          className="space-y-4"
-        >
-          <Input label="Nome da Loja" defaultValue="Bella Perfumaria" placeholder="Nome da sua loja" />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Nome da Loja"
+            placeholder="Nome da sua loja"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Telefone" defaultValue="(11) 99999-8888" placeholder="Telefone da loja" />
-            <Input label="Email" type="email" defaultValue="contato@bella.com" placeholder="Email da loja" />
+            <Input
+              label="Telefone"
+              placeholder="(11) 99999-8888"
+              value={form.phone}
+              maxLength={15}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+            <Input
+              label="Email"
+              type="email"
+              placeholder="contato@sualoja.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </div>
-          <Input label="Endereço" defaultValue="Rua das Flores, 123 - São Paulo/SP" placeholder="Endereço da loja" />
+          <Input
+            label="Endereço"
+            placeholder="Rua, número - Cidade/UF"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+          />
 
           <div className="pt-4 border-t border-border">
-            <Button type="submit">
+            <Button type="submit" isLoading={saving}>
               <Save className="w-4 h-4" />
               Salvar Configurações
             </Button>
           </div>
         </form>
-      </Card>
-
-      <Card title="Configurações de Cupom" className="max-w-2xl">
-        <div className="space-y-4">
-          <Input label="Mensagem no rodapé do cupom" defaultValue="Obrigada pela preferência! Volte sempre!" placeholder="Mensagem personalizada" />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="CNPJ (opcional)" placeholder="00.000.000/0000-00" />
-            <Input label="Inscrição Estadual (opcional)" placeholder="000.000.000.000" />
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Notificações" className="max-w-2xl">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-background border border-border">
-            <div>
-              <p className="font-medium text-sm">Alerta de estoque baixo</p>
-              <p className="text-xs text-muted">Receber notificação quando um produto atingir o estoque mínimo</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
-            </label>
-          </div>
-          <div className="flex items-center justify-between p-4 rounded-lg bg-background border border-border">
-            <div>
-              <p className="font-medium text-sm">Enviar cupom por email automaticamente</p>
-              <p className="text-xs text-muted">Envia o comprovante por email após cada venda</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" />
-              <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
-            </label>
-          </div>
-        </div>
       </Card>
     </div>
   );

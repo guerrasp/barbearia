@@ -35,8 +35,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
-          {children}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10">{children}</div>
         </main>
       </div>
     </div>
