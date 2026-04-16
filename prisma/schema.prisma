@@ -79,9 +79,9 @@ model Product {
   image       String?
   costPrice   Float    @map("cost_price")
   salePrice   Float    @map("sale_price")
-  profitMargin Float   @map("profit_margin") // calculado: ((salePrice - costPrice) / costPrice) * 100
+  profitMargin Float   @map("profit_margin")
   stock       Int      @default(0)
-  minStock    Int      @default(5) @map("min_stock") // alerta de estoque baixo
+  minStock    Int      @default(5) @map("min_stock")
   isActive    Boolean  @default(true) @map("is_active")
   storeId     String   @map("store_id")
   categoryId  String?  @map("category_id")
@@ -99,9 +99,9 @@ model Product {
 // ==================== MOVIMENTAÇÃO DE ESTOQUE ====================
 
 enum MovementType {
-  IN      // entrada
-  OUT     // saída (venda)
-  ADJUST  // ajuste manual
+  IN
+  OUT
+  ADJUST
 }
 
 model StockMovement {
@@ -151,43 +151,49 @@ model Customer {
 // ==================== VENDAS ====================
 
 enum SaleStatus {
-  PENDING     // aguardando pagamento
-  PAID        // pago
-  PREPARING   // preparando entrega
-  DELIVERING  // em rota
-  DELIVERED   // entregue
-  CANCELLED   // cancelado
+  PENDING
+  PAID
+  PREPARING
+  DELIVERING
+  DELIVERED
+  CANCELLED
+  REFUNDED
+  EXCHANGED
 }
 
 enum PaymentMethod {
-  CASH        // dinheiro
+  CASH
   PIX
-  CREDIT_CARD // cartão crédito
-  DEBIT_CARD  // cartão débito
-  INSTALLMENT // fiado/crediário
+  CREDIT_CARD
+  DEBIT_CARD
+  INSTALLMENT  // crediário
 }
 
 model Sale {
-  id            String        @id @default(uuid())
-  code          String        @unique // código legível: VND-001
-  customerId    String        @map("customer_id")
-  sellerId      String        @map("seller_id")
-  storeId       String        @map("store_id")
-  subtotal      Float
-  discount      Float         @default(0)
-  total         Float
-  paymentMethod PaymentMethod @map("payment_method")
-  status        SaleStatus    @default(PENDING)
-  installmentDueDate DateTime? @map("installment_due_date") // data do fiado
-  notes         String?
-  deliveryAddress String?     @map("delivery_address")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id              String        @id @default(uuid())
+  code            String        @unique
+  customerId      String        @map("customer_id")
+  sellerId        String        @map("seller_id")
+  storeId         String        @map("store_id")
+  subtotal        Float
+  discount        Float         @default(0)
+  total           Float
+  paymentMethod   PaymentMethod @map("payment_method") // método principal (maior valor)
+  status          SaleStatus    @default(PENDING)
+  installmentDueDate DateTime?  @map("installment_due_date") // legacy
+  cancelledAt     DateTime?     @map("cancelled_at")
+  cancelReason    String?       @map("cancel_reason")
+  notes           String?
+  deliveryAddress String?       @map("delivery_address")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  customer Customer   @relation(fields: [customerId], references: [id])
-  seller   User       @relation(fields: [sellerId], references: [id])
-  store    Store      @relation(fields: [storeId], references: [id])
-  items    SaleItem[]
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  seller       User          @relation(fields: [sellerId], references: [id])
+  store        Store         @relation(fields: [storeId], references: [id])
+  items        SaleItem[]
+  payments     Payment[]
+  installments Installment[]
 
   @@map("sales")
 }
@@ -204,4 +210,42 @@ model SaleItem {
   product Product @relation(fields: [productId], references: [id])
 
   @@map("sale_items")
+}
+
+// ==================== PAGAMENTOS (split) ====================
+
+model Payment {
+  id           String        @id @default(uuid())
+  saleId       String        @map("sale_id")
+  method       PaymentMethod
+  amount       Float
+  installments Int?          // 1-12 para cartão de crédito
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ==================== PARCELAS (crediário) ====================
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model Installment {
+  id            String            @id @default(uuid())
+  saleId        String            @map("sale_id")
+  number        Int               // 1, 2, 3...
+  amount        Float
+  dueDate       DateTime          @map("due_date")
+  paidAt        DateTime?         @map("paid_at")
+  status        InstallmentStatus @default(PENDING)
+  notified3Days Boolean           @default(false) @map("notified_3_days")
+  notified1Day  Boolean           @default(false) @map("notified_1_day")
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@map("installments")
 }

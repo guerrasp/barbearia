@@ -34,6 +34,8 @@ const statusConfig: Record<string, { label: string; variant: "success" | "info" 
   DELIVERING: { label: "Em Rota de Entrega", variant: "info", icon: Truck },
   DELIVERED: { label: "Entregue", variant: "success", icon: CheckCircle },
   CANCELLED: { label: "Cancelado", variant: "danger", icon: Clock },
+  REFUNDED: { label: "Estornado", variant: "danger", icon: Clock },
+  EXCHANGED: { label: "Troca Realizada", variant: "default", icon: Package },
 };
 
 const paymentLabels: Record<string, string> = {
@@ -41,7 +43,7 @@ const paymentLabels: Record<string, string> = {
   PIX: "PIX",
   CREDIT_CARD: "Cartão de Crédito",
   DEBIT_CARD: "Cartão de Débito",
-  INSTALLMENT: "Fiado",
+  INSTALLMENT: "Crediário",
 };
 
 export default function ClientePortal() {

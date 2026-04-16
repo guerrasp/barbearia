@@ -7,6 +7,12 @@ interface ReceiptSaleItem {
   product: { name: string };
 }
 
+interface ReceiptPayment {
+  method: string;
+  amount: number;
+  installments: number | null;
+}
+
 interface ReceiptSale {
   code: string;
   subtotal: number;
@@ -21,6 +27,7 @@ interface ReceiptSale {
   customer: { name: string; phone: string | null; email: string | null };
   seller: { name: string };
   items: ReceiptSaleItem[];
+  payments?: ReceiptPayment[];
 }
 
 interface ReceiptStore {
@@ -35,7 +42,7 @@ const paymentLabels: Record<string, string> = {
   PIX: "PIX",
   CREDIT_CARD: "Cartão de Crédito",
   DEBIT_CARD: "Cartão de Débito",
-  INSTALLMENT: "Fiado",
+  INSTALLMENT: "Crediário",
 };
 
 const statusLabels: Record<string, string> = {
@@ -45,6 +52,8 @@ const statusLabels: Record<string, string> = {
   DELIVERING: "Em Rota de Entrega",
   DELIVERED: "Entregue",
   CANCELLED: "Cancelado",
+  REFUNDED: "Estornado",
+  EXCHANGED: "Troca Realizada",
 };
 
 function formatCurrency(value: number) {
@@ -59,6 +68,41 @@ function formatDate(date: Date | string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function buildPaymentRows(sale: ReceiptSale): string {
+  const payments = sale.payments && sale.payments.length > 0
+    ? sale.payments
+    : [{ method: sale.paymentMethod, amount: sale.total, installments: null }];
+
+  return payments.map((p) => {
+    const label = paymentLabels[p.method] || p.method;
+    let detail = label;
+    if (p.method === "CREDIT_CARD" && p.installments && p.installments > 1) {
+      const parcel = p.amount / p.installments;
+      detail += ` (${p.installments}x de ${formatCurrency(parcel)})`;
+    }
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="color:#666;font-size:13px">${detail}</span>
+      <span style="font-weight:500;color:#111;font-size:13px">${formatCurrency(p.amount)}</span>
+    </div>`;
+  }).join("");
+}
+
+function buildPaymentText(sale: ReceiptSale): string {
+  const payments = sale.payments && sale.payments.length > 0
+    ? sale.payments
+    : [{ method: sale.paymentMethod, amount: sale.total, installments: null }];
+
+  return payments.map((p) => {
+    const label = paymentLabels[p.method] || p.method;
+    let detail = label;
+    if (p.method === "CREDIT_CARD" && p.installments && p.installments > 1) {
+      const parcel = p.amount / p.installments;
+      detail += ` (${p.installments}x de ${formatCurrency(parcel)})`;
+    }
+    return `  ${detail}: ${formatCurrency(p.amount)}`;
+  }).join("\n");
 }
 
 export function buildReceiptHtml(sale: ReceiptSale, store: ReceiptStore): string {
@@ -142,20 +186,10 @@ export function buildReceiptHtml(sale: ReceiptSale, store: ReceiptStore): string
       </div>
     </div>
 
-    <!-- Pagamento -->
+    <!-- Pagamento (split) -->
     <div style="padding:20px 24px;background:#fafafa">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="color:#666;font-size:13px">Forma de pagamento</span>
-        <span style="font-weight:500;color:#111">${paymentLabels[sale.paymentMethod] || sale.paymentMethod}</span>
-      </div>
-      ${
-        sale.installmentDueDate
-          ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-               <span style="color:#666;font-size:13px">Vencimento</span>
-               <span style="font-weight:500;color:#111">${formatDate(sale.installmentDueDate)}</span>
-             </div>`
-          : ""
-      }
+      <div style="color:#666;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Pagamento</div>
+      ${buildPaymentRows(sale)}
       ${
         sale.deliveryAddress
           ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
@@ -199,7 +233,8 @@ ${itemsStr}
 Subtotal: ${formatCurrency(sale.subtotal)}${sale.discount > 0 ? `\nDesconto: -${formatCurrency(sale.discount)}` : ""}
 *TOTAL: ${formatCurrency(sale.total)}*
 
-*Pagamento:* ${paymentLabels[sale.paymentMethod] || sale.paymentMethod}${sale.installmentDueDate ? `\n*Vencimento:* ${formatDate(sale.installmentDueDate)}` : ""}${sale.deliveryAddress ? `\n\n*Entrega:* ${sale.deliveryAddress}` : ""}
+*Pagamento:*
+${buildPaymentText(sale)}${sale.deliveryAddress ? `\n\n*Entrega:* ${sale.deliveryAddress}` : ""}
 
 ━━━━━━━━━━━━━━━━━━━━
 Obrigada pela preferência! 💙`;

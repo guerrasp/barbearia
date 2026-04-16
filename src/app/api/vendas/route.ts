@@ -2,6 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+const paymentSchema = z.object({
+  method: z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "INSTALLMENT"]),
+  amount: z.number().min(0.01),
+  installments: z.number().int().min(1).max(12).optional(),
+  // Crediário
+  dueDate: z.string().optional(),
+  numInstallments: z.number().int().min(1).max(12).optional(),
+});
+
 const saleItemSchema = z.object({
   productId: z.string(),
   quantity: z.number().int().min(1),
@@ -17,7 +26,9 @@ const saleSchema = z.object({
   subtotal: z.number().min(0),
   discount: z.number().min(0).default(0),
   total: z.number().min(0),
-  paymentMethod: z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "INSTALLMENT"]),
+  // Retrocompatibilidade: se vier paymentMethod único (sem split)
+  paymentMethod: z.enum(["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "INSTALLMENT"]).optional(),
+  payments: z.array(paymentSchema).optional(),
   installmentDueDate: z.string().optional(),
   notes: z.string().optional(),
   deliveryAddress: z.string().optional(),
@@ -50,6 +61,8 @@ export async function GET(req: NextRequest) {
       customer: { select: { name: true, phone: true, email: true } },
       seller: { select: { name: true } },
       items: { include: { product: { select: { name: true } } } },
+      payments: true,
+      installments: { orderBy: { number: "asc" } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -63,7 +76,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = saleSchema.parse(body);
 
-    // Criar a venda com os itens em uma transação
+    // Normaliza pagamentos
+    let payments = data.payments || [];
+    if (payments.length === 0 && data.paymentMethod) {
+      // Retrocompatibilidade: campo único
+      payments = [{ method: data.paymentMethod, amount: data.total }];
+    }
+
+    if (payments.length === 0) {
+      return NextResponse.json({ error: "Informe pelo menos uma forma de pagamento" }, { status: 400 });
+    }
+
+    // Método principal = maior valor
+    const primaryPayment = payments.reduce((a, b) => (a.amount >= b.amount ? a : b));
+    const hasInstallment = payments.some((p) => p.method === "INSTALLMENT");
+
     const sale = await prisma.$transaction(async (tx) => {
       // 1. Criar a venda
       const newSale = await tx.sale.create({
@@ -75,8 +102,8 @@ export async function POST(req: NextRequest) {
           subtotal: data.subtotal,
           discount: data.discount,
           total: data.total,
-          paymentMethod: data.paymentMethod,
-          status: data.paymentMethod === "INSTALLMENT" ? "PENDING" : "PAID",
+          paymentMethod: primaryPayment.method,
+          status: hasInstallment ? "PENDING" : "PAID",
           installmentDueDate: data.installmentDueDate ? new Date(data.installmentDueDate) : null,
           notes: data.notes || null,
           deliveryAddress: data.deliveryAddress || null,
@@ -95,13 +122,47 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // 2. Baixar estoque e registrar movimentações
+      // 2. Criar registros de pagamento
+      for (const p of payments) {
+        await tx.payment.create({
+          data: {
+            saleId: newSale.id,
+            method: p.method,
+            amount: p.amount,
+            installments: p.method === "CREDIT_CARD" ? (p.installments || 1) : null,
+          },
+        });
+      }
+
+      // 3. Gerar parcelas do crediário
+      for (const p of payments) {
+        if (p.method === "INSTALLMENT" && p.dueDate && p.numInstallments) {
+          const n = p.numInstallments;
+          const parcelAmount = Math.round((p.amount / n) * 100) / 100;
+          const baseDate = new Date(p.dueDate);
+          for (let i = 0; i < n; i++) {
+            const dueDate = new Date(baseDate);
+            dueDate.setMonth(dueDate.getMonth() + i);
+            // Ajusta último centavo pra bater
+            const amount = i === n - 1 ? p.amount - parcelAmount * (n - 1) : parcelAmount;
+            await tx.installment.create({
+              data: {
+                saleId: newSale.id,
+                number: i + 1,
+                amount,
+                dueDate,
+              },
+            });
+          }
+        }
+      }
+
+      // 4. Baixar estoque
       for (const item of data.items) {
         await tx.product.update({
           where: { id: item.productId },
           data: { stock: { decrement: item.quantity } },
         });
-
         await tx.stockMovement.create({
           data: {
             productId: item.productId,
