@@ -121,7 +121,7 @@ export default function CadastroPage() {
 
   const handleSubmit = async () => {
     if (!validateStep2()) return;
-    if (!storeInfo) { toast.error("Loja não identificada. Acesse o link fornecido pela sua revendedora."); return; }
+    if (!storeInfo) { toast.error("Barbearia não identificada. Acesse o link fornecido pela barbearia."); return; }
 
     setIsLoading(true);
     try {
@@ -385,7 +385,7 @@ export default function CadastroPage() {
         </div>
 
         <p className="text-center text-blue-300/25 text-[10px] mt-4">
-          Bella Gestão &copy; 2026
+          Barbearia &copy; 2026
         </p>
       </div>
     </div>

@@ -37,8 +37,12 @@ export async function GET(req: NextRequest) {
       }),
     },
     include: {
-      _count: { select: { sales: true } },
-      sales: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+      _count: { select: { appointments: true } },
+      appointments: {
+        orderBy: { startAt: "desc" },
+        take: 1,
+        select: { startAt: true, status: true },
+      },
     },
     orderBy: { name: "asc" },
   });

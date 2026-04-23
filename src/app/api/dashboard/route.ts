@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-// GET - Dados do dashboard
+// GET - Dados do dashboard (barbearia)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const storeId = searchParams.get("storeId");
@@ -11,68 +11,80 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Buscar dados em paralelo
+  // 7 dias à frente (agenda)
+  const in7 = new Date(startOfDay.getTime() + 7 * 24 * 60 * 60 * 1000);
+
   const [
-    monthlySales,
-    totalProducts,
+    todayAppointments,
+    upcomingAppointments,
+    monthCompleted,
     totalCustomers,
-    lowStockProducts,
-    recentSales,
+    activeBarbers,
+    activeServices,
   ] = await Promise.all([
-    // Vendas do mês
-    prisma.sale.findMany({
+    prisma.appointment.findMany({
       where: {
         storeId,
-        createdAt: { gte: startOfMonth },
-        status: { notIn: ["CANCELLED", "REFUNDED", "EXCHANGED"] },
+        startAt: { gte: startOfDay, lt: endOfDay },
+        status: { notIn: ["CANCELLED"] },
       },
-      include: { items: true },
+      include: {
+        customer: { select: { name: true, phone: true } },
+        barber: { select: { name: true } },
+        services: { include: { service: { select: { name: true } } } },
+      },
+      orderBy: { startAt: "asc" },
     }),
-    // Total de produtos ativos
-    prisma.product.count({ where: { storeId, isActive: true } }),
-    // Total de clientes
-    prisma.customer.count({ where: { storeId } }),
-    // Produtos com estoque baixo (stock <= minStock)
-    prisma.$queryRaw<{ id: string; name: string; stock: number; min_stock: number }[]>`
-      SELECT id, name, stock, min_stock
-      FROM products
-      WHERE store_id = ${storeId}
-        AND is_active = true
-        AND stock <= min_stock
-      ORDER BY stock ASC
-      LIMIT 10
-    `,
-    // Vendas recentes
-    prisma.sale.findMany({
-      where: { storeId },
+    prisma.appointment.findMany({
+      where: {
+        storeId,
+        startAt: { gte: endOfDay, lt: in7 },
+        status: { notIn: ["CANCELLED"] },
+      },
       include: {
         customer: { select: { name: true } },
-        items: true,
+        barber: { select: { name: true } },
       },
-      orderBy: { createdAt: "desc" },
-      take: 5,
+      orderBy: { startAt: "asc" },
+      take: 10,
     }),
+    prisma.appointment.findMany({
+      where: {
+        storeId,
+        status: "COMPLETED",
+        startAt: { gte: startOfMonth },
+      },
+      select: { total: true, paid: true },
+    }),
+    prisma.customer.count({ where: { storeId } }),
+    prisma.barber.count({ where: { storeId, isActive: true } }),
+    prisma.service.count({ where: { storeId, isActive: true } }),
   ]);
 
-  const revenue = monthlySales.reduce((sum, s) => sum + s.total, 0);
-  const totalOrders = monthlySales.length;
-
-  // Normaliza snake_case do raw query para camelCase
-  const lowStockMapped = lowStockProducts.map((p) => ({
-    id: p.id,
-    name: p.name,
-    stock: Number(p.stock),
-    minStock: Number(p.min_stock),
-  }));
+  const monthRevenue = monthCompleted.reduce((s, a) => s + a.total, 0);
+  const monthPaidRevenue = monthCompleted
+    .filter((a) => a.paid)
+    .reduce((s, a) => s + a.total, 0);
 
   return NextResponse.json({
-    revenue,
-    totalOrders,
-    totalProducts,
-    totalCustomers,
-    lowStockProducts: lowStockMapped,
-    recentSales,
+    today: {
+      count: todayAppointments.length,
+      list: todayAppointments,
+    },
+    upcoming: upcomingAppointments,
+    month: {
+      completedCount: monthCompleted.length,
+      revenue: monthRevenue,
+      paidRevenue: monthPaidRevenue,
+    },
+    totals: {
+      customers: totalCustomers,
+      barbers: activeBarbers,
+      services: activeServices,
+    },
   });
 }

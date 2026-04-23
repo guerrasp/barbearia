@@ -1,35 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Menu, Bell, Search, LogOut, User as UserIcon, Store as StoreIcon, Package, AlertTriangle } from "lucide-react";
+import { Menu, Bell, Search, LogOut, User as UserIcon, Store as StoreIcon, CalendarDays } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
 
 interface HeaderProps {
   onMenuClick: () => void;
   title?: string;
 }
 
-interface LowStockProduct {
-  id: string;
-  name: string;
-  stock: number;
-  minStock: number;
-}
-
 export default function Header({ onMenuClick, title }: HeaderProps) {
   const { user, store, logout } = useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [lowStock, setLowStock] = useState<LowStockProduct[]>([]);
-  const [loadingNotifs, setLoadingNotifs] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const initial = (user?.name?.trim()?.[0] || "A").toUpperCase();
 
-  // Fecha dropdowns ao clicar fora
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -43,22 +32,9 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Carrega produtos com estoque baixo quando o sino é aberto
-  const openNotifications = async () => {
+  const openNotifications = () => {
     setNotifOpen((v) => !v);
     setProfileOpen(false);
-    if (!notifOpen && user?.storeId) {
-      setLoadingNotifs(true);
-      try {
-        const products = await api.get<LowStockProduct[]>(`/produtos?storeId=${user.storeId}`);
-        const low = products.filter((p) => p.stock <= p.minStock);
-        setLowStock(low);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingNotifs(false);
-      }
-    }
   };
 
   return (
@@ -79,7 +55,7 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
           <Search className="w-4 h-4 text-muted" />
           <input
             type="text"
-            placeholder="Buscar produtos, clientes..."
+            placeholder="Buscar clientes..."
             className="bg-transparent text-sm outline-none w-full placeholder:text-muted"
           />
         </div>
@@ -92,58 +68,21 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
             aria-label="Notificações"
           >
             <Bell className="w-5 h-5 text-muted" />
-            {lowStock.length > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full" />
-            )}
           </button>
 
           {notifOpen && (
             <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-background">
                 <h3 className="font-semibold text-sm text-foreground">Notificações</h3>
-                <p className="text-xs text-muted">Alertas de estoque</p>
+                <p className="text-xs text-muted">Agendamentos e lembretes</p>
               </div>
 
               <div className="max-h-80 overflow-y-auto">
-                {loadingNotifs ? (
-                  <div className="p-6 text-center">
-                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                  </div>
-                ) : lowStock.length === 0 ? (
-                  <div className="p-6 text-center text-muted text-sm">
-                    <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    Nenhuma notificação
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-border">
-                    {lowStock.map((p) => (
-                      <li key={p.id} className="px-4 py-3 hover:bg-background transition-colors">
-                        <div className="flex items-start gap-3">
-                          <div className="p-1.5 bg-warning/10 rounded-lg flex-shrink-0">
-                            <AlertTriangle className="w-4 h-4 text-warning" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
-                            <p className="text-xs text-muted">
-                              Estoque: <span className="font-semibold text-danger">{p.stock}</span>
-                              {" "}(mínimo: {p.minStock})
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="p-6 text-center text-muted text-sm">
+                  <CalendarDays className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  Nenhuma notificação
+                </div>
               </div>
-
-              {lowStock.length > 0 && (
-                <a
-                  href="/admin/produtos"
-                  className="block text-center text-xs text-primary hover:bg-background py-2 border-t border-border"
-                >
-                  Ver todos os produtos
-                </a>
-              )}
             </div>
           )}
         </div>
@@ -183,7 +122,7 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
                 <div className="px-3 py-2.5 flex items-center gap-3 text-sm text-muted">
                   <UserIcon className="w-4 h-4" />
                   <span className="truncate capitalize">
-                    {user?.role === "ADMIN" ? "Administrador" : user?.role === "SELLER" ? "Vendedor" : "Cliente"}
+                    {user?.role === "ADMIN" ? "Administrador" : user?.role === "BARBER" ? "Barbeiro" : "Cliente"}
                   </span>
                 </div>
 

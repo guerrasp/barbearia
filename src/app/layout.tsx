@@ -14,18 +14,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bella Gestão - Sistema de Vendas",
-  description: "Sistema de gestão para vendas de perfumes e produtos de beleza",
+  title: "Barbearia — Agendamento Online",
+  description: "Agende seu corte e acompanhe seus atendimentos",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Bella Gestão",
+    title: "Barbearia",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#7c3aed",
+  themeColor: "#0f172a",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

@@ -1,19 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import ParticleBackground from "@/components/effects/ParticleBackground";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { Store, Lock, Mail, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  Scissors,
+  Lock,
+  Mail,
+  ArrowRight,
+  ShieldCheck,
+  CalendarDays,
+  MapPin,
+} from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
-export default function LoginPage() {
+interface StoreSummary {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export default function LandingPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [stores, setStores] = useState<StoreSummary[]>([]);
+
+  useEffect(() => {
+    fetch("/api/stores")
+      .then((r) => r.json())
+      .then((data) => {
+        // API pode retornar objeto único ou array
+        if (Array.isArray(data)) setStores(data);
+        else if (data?.id) setStores([data]);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +47,8 @@ export default function LoginPage() {
       const { role } = await login(email, password);
       toast.success("Login realizado!");
       if (role === "CUSTOMER") {
-        window.location.href = "/cliente";
+        // Sem portal de cliente por enquanto — redirecionar ao agendamento
+        window.location.href = stores[0] ? `/agendar/${stores[0].slug}` : "/";
       } else {
         window.location.href = "/admin";
       }
@@ -33,135 +59,120 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Efeito de partículas */}
-      <ParticleBackground />
+  const primaryStore = stores[0];
 
-      {/* Círculos decorativos de fundo */}
-      <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-3xl" />
-      <div className="absolute top-[40%] left-[20%] w-[200px] h-[200px] bg-cyan-400/5 rounded-full blur-2xl" />
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-950 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] bg-zinc-500/10 rounded-full blur-3xl" />
 
       <Toaster position="top-right" />
 
       <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-5 border border-white/10 shadow-lg shadow-blue-500/10">
-            <Store className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-5 border border-white/10 shadow-lg shadow-amber-500/10">
+            <Scissors className="w-10 h-10 text-amber-400" />
           </div>
           <h1 className="text-4xl font-bold text-white tracking-tight">
-            Bella Gestão
+            {primaryStore?.name ?? "Barbearia"}
           </h1>
-          <p className="text-blue-200/70 mt-2 flex items-center justify-center gap-1.5">
-            <Sparkles className="w-4 h-4" />
-            Perfumes & Beleza
+          <p className="text-amber-200/70 mt-2 flex items-center justify-center gap-1.5 text-sm">
+            <MapPin className="w-4 h-4" />
+            Agendamento online
           </p>
         </div>
 
-        {/* Card de Login */}
-        <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 p-8 border border-white/20">
-          {!showAdminLogin ? (
-            <>
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Bem-vinda!</h2>
-                <p className="text-sm text-gray-500 mt-1">Acesse sua conta para ver seus pedidos</p>
-              </div>
+        {!showAdminLogin ? (
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 p-8 border border-white/10 space-y-5">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Marque seu horário</h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                Escolha barbeiro, serviço e horário — sem precisar criar conta.
+              </p>
+            </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
-                <Input
-                  label="Email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  icon={<Mail className="w-4 h-4" />}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                <Input
-                  label="Senha"
-                  type="password"
-                  placeholder="••••••••"
-                  icon={<Lock className="w-4 h-4" />}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <Button type="submit" isLoading={isLoading} className="w-full !bg-blue-600 hover:!bg-blue-700" size="lg">
-                  Entrar <ArrowRight className="w-4 h-4" />
-                </Button>
-              </form>
-
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <p className="text-center text-xs text-gray-400">
-                  Ainda não tem conta?{" "}
-                  <a href="/cadastro" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Cadastre-se
-                  </a>
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 mb-6">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <ShieldCheck className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">Painel Administrativo</h2>
-                  <p className="text-xs text-gray-500">Acesso exclusivo para revendedoras</p>
-                </div>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-4">
-                <Input
-                  label="Email"
-                  type="email"
-                  placeholder="admin@email.com"
-                  icon={<Mail className="w-4 h-4" />}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                <Input
-                  label="Senha"
-                  type="password"
-                  placeholder="••••••••"
-                  icon={<Lock className="w-4 h-4" />}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <Button type="submit" isLoading={isLoading} className="w-full !bg-blue-600 hover:!bg-blue-700" size="lg">
-                  Entrar no Painel <ArrowRight className="w-4 h-4" />
-                </Button>
-              </form>
-
-              <button
-                onClick={() => { setShowAdminLogin(false); setEmail(""); setPassword(""); }}
-                className="w-full mt-4 text-sm text-blue-600 hover:text-blue-700"
-              >
-                ← Voltar para área do cliente
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Botão admin discreto */}
-        {!showAdminLogin && (
-          <div className="text-center mt-5">
-            <button
-              onClick={() => { setShowAdminLogin(true); setEmail(""); setPassword(""); }}
-              className="text-blue-300/40 text-[11px] hover:text-blue-200/70 transition-colors"
+            <Button
+              onClick={() => {
+                if (!primaryStore) return toast.error("Loja não carregada");
+                window.location.href = `/agendar/${primaryStore.slug}`;
+              }}
+              className="w-full !bg-amber-500 hover:!bg-amber-600"
+              size="lg"
+              disabled={!primaryStore}
             >
-              Acesso administrativo
+              <CalendarDays className="w-4 h-4" />
+              {primaryStore ? "Agendar agora" : "Carregando..."}
+              <ArrowRight className="w-4 h-4 ml-auto" />
+            </Button>
+
+            <div className="pt-4 border-t border-white/10">
+              <p className="text-center text-xs text-zinc-500">
+                Já tem cadastro?{" "}
+                <button
+                  onClick={() => setShowAdminLogin(true)}
+                  className="text-amber-300 hover:text-amber-200 font-medium"
+                >
+                  Entrar
+                </button>
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/20 p-8 border border-white/20">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <ShieldCheck className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Acesso interno</h2>
+                <p className="text-xs text-gray-500">Painel da equipe</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                placeholder="seu@email.com"
+                icon={<Mail className="w-4 h-4" />}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <Input
+                label="Senha"
+                type="password"
+                placeholder="••••••••"
+                icon={<Lock className="w-4 h-4" />}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <Button
+                type="submit"
+                isLoading={isLoading}
+                className="w-full !bg-amber-500 hover:!bg-amber-600"
+                size="lg"
+              >
+                Entrar <ArrowRight className="w-4 h-4" />
+              </Button>
+            </form>
+
+            <button
+              onClick={() => {
+                setShowAdminLogin(false);
+                setEmail("");
+                setPassword("");
+              }}
+              className="w-full mt-4 text-sm text-amber-600 hover:text-amber-700"
+            >
+              ← Voltar
             </button>
           </div>
         )}
 
-        <p className="text-center text-blue-300/25 text-[10px] mt-6">
-          Bella Gestão &copy; 2026
+        <p className="text-center text-zinc-500 text-[10px] mt-6">
+          {primaryStore?.name ?? "Barbearia"} &copy; 2026
         </p>
       </div>
     </div>

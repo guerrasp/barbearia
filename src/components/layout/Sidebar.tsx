@@ -6,11 +6,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Package,
+  Scissors,
   Users,
-  ShoppingCart,
-  BarChart3,
-  Boxes,
+  UserCog,
+  CalendarDays,
+  CalendarRange,
   Settings,
   LogOut,
   X,
@@ -19,11 +19,11 @@ import {
 
 const menuItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/produtos", label: "Produtos", icon: Package },
+  { href: "/admin/agendamentos", label: "Agendamentos", icon: CalendarDays },
+  { href: "/admin/agenda", label: "Agenda", icon: CalendarRange },
+  { href: "/admin/servicos", label: "Serviços", icon: Scissors },
+  { href: "/admin/barbeiros", label: "Barbeiros", icon: UserCog },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
-  { href: "/admin/estoque", label: "Estoque", icon: Boxes },
-  { href: "/admin/vendas", label: "Vendas", icon: ShoppingCart },
-  { href: "/admin/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 
@@ -52,7 +52,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="flex items-center gap-3">
             <Store className="w-8 h-8 text-primary-light" />
             <div>
-              <h1 className="text-lg font-bold">{store?.name || "Bella Gestão"}</h1>
+              <h1 className="text-lg font-bold">{store?.name || "Barbearia"}</h1>
               <p className="text-xs text-sidebar-text/60">{user?.name}</p>
             </div>
           </div>

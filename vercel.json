@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/notify-due-dates",
-      "schedule": "0 12 * * *"
+      "path": "/api/cron/reminders",
+      "schedule": "0 * * * *"
     }
   ]
 }

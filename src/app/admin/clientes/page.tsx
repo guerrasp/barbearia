@@ -37,8 +37,8 @@ interface Customer {
   city: string | null;
   state: string | null;
   zipCode: string | null;
-  _count: { sales: number };
-  sales: { createdAt: string }[];
+  _count: { appointments: number };
+  appointments: { startAt: string; status: string }[];
 }
 
 export default function ClientesPage() {
@@ -153,7 +153,7 @@ export default function ClientesPage() {
                 <th className="pb-3 font-medium">Telefone</th>
                 <th className="pb-3 font-medium">CPF</th>
                 <th className="pb-3 font-medium">Cidade</th>
-                <th className="pb-3 font-medium">Compras</th>
+                <th className="pb-3 font-medium">Agendamentos</th>
                 <th className="pb-3 font-medium text-right">Ações</th>
               </tr>
             </thead>
@@ -174,7 +174,7 @@ export default function ClientesPage() {
                   <td className="py-3">{c.phone ? formatPhone(c.phone) : "-"}</td>
                   <td className="py-3 font-mono text-xs">{c.cpf ? formatCPF(c.cpf) : "-"}</td>
                   <td className="py-3">{c.city ? `${c.city}/${c.state}` : "-"}</td>
-                  <td className="py-3 font-medium">{c._count.sales}</td>
+                  <td className="py-3 font-medium">{c._count.appointments}</td>
                   <td className="py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => openModal(c)} className="p-2 rounded-lg hover:bg-background text-muted hover:text-primary transition-colors">
@@ -217,7 +217,7 @@ export default function ClientesPage() {
             <div className="mt-3 space-y-1 text-sm text-muted">
               {c.phone && <div className="flex items-center gap-2"><Phone className="w-3 h-3" />{formatPhone(c.phone)}</div>}
               {c.city && <div className="flex items-center gap-2"><MapPin className="w-3 h-3" />{c.city}/{c.state}</div>}
-              <p className="text-xs">{c._count.sales} compras</p>
+              <p className="text-xs">{c._count.appointments} agendamentos</p>
             </div>
           </Card>
         ))}

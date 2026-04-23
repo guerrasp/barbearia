@@ -13,7 +13,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: "ADMIN" | "SELLER" | "CUSTOMER";
+  role: "ADMIN" | "BARBER" | "CUSTOMER";
   storeId: string;
   customerId: string | null;
   store: Store;
