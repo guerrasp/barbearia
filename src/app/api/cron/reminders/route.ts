@@ -19,9 +19,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  // Janela ampla para rodar bem com cron diário (plano Hobby da Vercel):
+  // pega tudo entre "de agora + 1h" e "de agora + 48h" que ainda não
+  // recebeu lembrete. A flag notifiedReminder=false garante idempotência.
   const now = new Date();
-  const from = new Date(now.getTime() + 23 * 60 * 60_000);
-  const to = new Date(now.getTime() + 25 * 60 * 60_000);
+  const from = new Date(now.getTime() + 1 * 60 * 60_000);
+  const to = new Date(now.getTime() + 48 * 60 * 60_000);
 
   const due = await prisma.appointment.findMany({
     where: {
