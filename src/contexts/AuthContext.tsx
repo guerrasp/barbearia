@@ -34,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<Store | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    // Hidratação: lê localStorage após mount pra evitar mismatch SSR/client.
     const stored = localStorage.getItem("bella_user");
     if (stored) {
       try {
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setIsLoading(false);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await api.post<{ user: User; session: unknown }>("/auth/login", {

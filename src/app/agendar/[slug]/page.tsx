@@ -3,7 +3,6 @@
 import { use, useEffect, useState, useMemo, useCallback } from "react";
 import { formatCurrency } from "@/lib/utils";
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
 import {
   Scissors,
   Clock,
@@ -180,14 +179,14 @@ export default function BookingPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+      <div className="korta-surface min-h-screen bg-korta-bg flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-korta-gold animate-spin" />
       </div>
     );
   }
   if (error || !store) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <div className="korta-surface min-h-screen bg-korta-bg flex items-center justify-center p-4">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-white max-w-md">
           <p className="text-lg font-semibold mb-2">Ops</p>
           <p className="text-sm text-zinc-400">{error || "Barbearia não encontrada."}</p>
@@ -197,15 +196,19 @@ export default function BookingPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-950 py-8 px-4">
+    <div className="korta-surface relative min-h-screen bg-korta-bg py-8 px-4 overflow-hidden">
+      {/* Decor */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-korta-bg via-korta-bg to-[#060b1a]" />
+      <div className="pointer-events-none absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-korta-gold/10 rounded-full blur-[120px]" />
+      <div className="pointer-events-none absolute bottom-[-20%] left-[-15%] w-[400px] h-[400px] bg-korta-surface/60 rounded-full blur-[100px]" />
       <Toaster position="top-right" />
-      <div className="max-w-2xl mx-auto">
+      <div className="relative z-10 max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Scissors className="w-7 h-7 text-amber-400" />
+          <div className="w-14 h-14 bg-korta-gold/10 border border-korta-gold/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <Scissors className="w-7 h-7 text-korta-gold" />
           </div>
-          <h1 className="text-2xl font-bold text-white">{store.name}</h1>
+          <h1 className="text-2xl font-bold text-korta-text">{store.name}</h1>
           {store.address && (
             <p className="text-zinc-400 text-xs flex items-center justify-center gap-1 mt-1">
               <MapPin className="w-3 h-3" />
@@ -221,14 +224,14 @@ export default function BookingPage({
               <div
                 key={n}
                 className={`h-1.5 w-12 rounded-full transition-colors ${
-                  step >= n ? "bg-amber-500" : "bg-white/10"
+                  step >= n ? "bg-korta-gold" : "bg-white/10"
                 }`}
               />
             ))}
           </div>
         )}
 
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5 md:p-6 shadow-xl">
+        <div className="bg-korta-surface/70 backdrop-blur-xl rounded-2xl border border-white/5 p-5 md:p-6 shadow-2xl shadow-black/40">
           {step === 1 && (
             <Step title="Escolha os serviços" subtitle="Pode marcar mais de um">
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
@@ -240,7 +243,7 @@ export default function BookingPage({
                       onClick={() => toggleService(s.id)}
                       className={`w-full text-left p-4 rounded-xl border transition-all ${
                         selected
-                          ? "border-amber-500 bg-amber-500/10"
+                          ? "border-korta-gold bg-korta-gold/10"
                           : "border-white/10 hover:border-white/30 bg-white/[.02]"
                       }`}
                     >
@@ -257,7 +260,7 @@ export default function BookingPage({
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="font-semibold text-amber-400">
+                          <p className="font-semibold text-korta-gold">
                             {formatCurrency(s.price)}
                           </p>
                         </div>
@@ -267,7 +270,7 @@ export default function BookingPage({
                 })}
               </div>
               {selectedServiceIds.length > 0 && (
-                <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-100 flex items-center justify-between">
+                <div className="mt-4 p-3 rounded-xl bg-korta-gold/10 border border-korta-gold/20 text-sm text-korta-gold-soft flex items-center justify-between">
                   <span>
                     {selectedServices.length} serviço
                     {selectedServices.length === 1 ? "" : "s"} · {totalDuration} min
@@ -289,7 +292,7 @@ export default function BookingPage({
                       onClick={() => setBarberId(b.id)}
                       className={`p-4 rounded-xl border text-left transition-all ${
                         selected
-                          ? "border-amber-500 bg-amber-500/10"
+                          ? "border-korta-gold bg-korta-gold/10"
                           : "border-white/10 hover:border-white/30 bg-white/[.02]"
                       }`}
                     >
@@ -353,7 +356,7 @@ export default function BookingPage({
                       onClick={() => setSlot(s)}
                       className={`py-2 rounded-lg border text-sm transition-colors ${
                         slot === s
-                          ? "border-amber-500 bg-amber-500 text-slate-900 font-semibold"
+                          ? "border-korta-gold bg-korta-gold text-korta-bg font-semibold"
                           : "border-white/10 text-white hover:border-white/40"
                       }`}
                     >
@@ -368,46 +371,69 @@ export default function BookingPage({
           {step === 4 && (
             <Step title="Seus dados" subtitle="Só pra confirmarmos o agendamento">
               <div className="space-y-3">
-                <Input
-                  label="Nome completo"
-                  icon={<User className="w-4 h-4" />}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Como prefere ser chamado"
-                  required
-                />
-                <Input
-                  label="Telefone"
-                  icon={<Phone className="w-4 h-4" />}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="(00) 00000-0000"
-                  required
-                />
-                <Input
-                  label="Email (opcional)"
-                  icon={<Mail className="w-4 h-4" />}
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="voce@email.com"
-                />
                 <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Nome completo
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Como prefere ser chamado"
+                      required
+                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-sm placeholder:text-zinc-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Telefone
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(00) 00000-0000"
+                      required
+                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-sm placeholder:text-zinc-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Email (opcional)
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="voce@email.com"
+                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-sm placeholder:text-zinc-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
                     Observações (opcional)
                   </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-sm placeholder:text-zinc-500"
                     placeholder="Alguma preferência?"
                   />
                 </div>
 
                 {/* Resumo */}
-                <div className="mt-5 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-1 text-sm">
-                  <p className="text-amber-200 font-semibold">Resumo</p>
+                <div className="mt-5 p-4 rounded-xl bg-korta-gold/5 border border-korta-gold/20 space-y-1 text-sm">
+                  <p className="text-korta-gold font-semibold">Resumo</p>
                   <p className="text-white">{selectedServices.map((s) => s.name).join(" + ")}</p>
                   <p className="text-zinc-400 text-xs">
                     Com {barbers.find((b) => b.id === barberId)?.name} · {totalDuration} min
@@ -422,7 +448,7 @@ export default function BookingPage({
                       minute: "2-digit",
                     })}
                   </p>
-                  <p className="text-amber-400 font-bold text-base pt-1">
+                  <p className="text-korta-gold font-bold text-base pt-1">
                     {formatCurrency(subtotal)}
                   </p>
                 </div>
@@ -437,7 +463,7 @@ export default function BookingPage({
               </div>
               <h2 className="text-xl font-bold text-white">Agendamento confirmado!</h2>
               <p className="text-sm text-zinc-400 mt-1">
-                Código: <span className="font-mono text-amber-300">{confirmation.code}</span>
+                Código: <span className="font-mono text-korta-gold-soft">{confirmation.code}</span>
               </p>
               <div className="mt-5 p-4 rounded-xl bg-white/5 border border-white/10 text-left space-y-2 text-sm">
                 <p className="text-white font-semibold">
@@ -447,7 +473,7 @@ export default function BookingPage({
                   Com {confirmation.barber.name}
                 </p>
                 <p className="text-zinc-300 text-sm flex items-center gap-1.5">
-                  <CalendarDays className="w-4 h-4 text-amber-400" />
+                  <CalendarDays className="w-4 h-4 text-korta-gold" />
                   {new Date(confirmation.startAt).toLocaleString("pt-BR", {
                     weekday: "long",
                     day: "2-digit",
@@ -456,7 +482,7 @@ export default function BookingPage({
                     minute: "2-digit",
                   })}
                 </p>
-                <p className="text-amber-400 font-bold text-lg pt-1">
+                <p className="text-korta-gold font-bold text-lg pt-1">
                   {formatCurrency(confirmation.total)}
                 </p>
               </div>
@@ -475,7 +501,7 @@ export default function BookingPage({
                   setNotes("");
                   setStep(1);
                 }}
-                className="mt-6 !bg-amber-500 hover:!bg-amber-600"
+                className="mt-6 !bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
               >
                 Novo agendamento
               </Button>
@@ -496,7 +522,7 @@ export default function BookingPage({
                 <Button
                   onClick={() => setStep((s) => (s + 1) as typeof step)}
                   disabled={!canNext()}
-                  className="!bg-amber-500 hover:!bg-amber-600"
+                  className="!bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
                 >
                   Continuar <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -505,7 +531,7 @@ export default function BookingPage({
                   onClick={submit}
                   isLoading={submitting}
                   disabled={!canNext()}
-                  className="!bg-amber-500 hover:!bg-amber-600"
+                  className="!bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
                 >
                   Confirmar agendamento <CheckCircle2 className="w-4 h-4" />
                 </Button>

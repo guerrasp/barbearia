@@ -1,11 +1,11 @@
 {
-  "name": "Bella Gestão",
-  "short_name": "Bella",
-  "description": "Sistema de gestão para vendas de perfumes e beleza",
+  "name": "Korta — Agendamento para barbearias",
+  "short_name": "Korta",
+  "description": "Seu horário na barbearia, em poucos toques.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e1b4b",
-  "theme_color": "#7c3aed",
+  "background_color": "#0B132B",
+  "theme_color": "#0B132B",
   "orientation": "portrait-primary",
   "icons": [
     {

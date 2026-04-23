@@ -11,7 +11,6 @@ import {
   Scissors,
   UserCog,
   DollarSign,
-  BadgeCheck,
   Clock,
   TrendingUp,
 } from "lucide-react";

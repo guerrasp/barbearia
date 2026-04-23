@@ -14,18 +14,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Barbearia — Agendamento Online",
-  description: "Agende seu corte e acompanhe seus atendimentos",
+  title: "Korta — Agendamento para barbearias",
+  description: "Korta: seu horário na barbearia em poucos toques. Sem ligação, sem fila.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Barbearia",
+    statusBarStyle: "black-translucent",
+    title: "Korta",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: "#0B132B",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

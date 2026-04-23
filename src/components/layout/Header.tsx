@@ -94,7 +94,7 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
               setProfileOpen((v) => !v);
               setNotifOpen(false);
             }}
-            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold hover:opacity-90 transition-opacity"
+            className="w-9 h-9 rounded-full bg-korta-gold flex items-center justify-center text-korta-bg text-sm font-bold hover:opacity-90 transition-opacity"
             aria-label="Menu do perfil"
           >
             {initial}
@@ -102,14 +102,14 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
 
           {profileOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-              <div className="px-4 py-4 border-b border-border bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-950 text-white">
+              <div className="px-4 py-4 border-b border-border bg-korta-bg text-korta-text">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white font-bold">
+                  <div className="w-10 h-10 rounded-full bg-korta-gold flex items-center justify-center text-korta-bg font-bold">
                     {initial}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">{user?.name || "Admin"}</p>
-                    <p className="text-xs text-blue-200/80 truncate">{user?.email}</p>
+                    <p className="text-xs text-korta-muted truncate">{user?.email}</p>
                   </div>
                 </div>
               </div>

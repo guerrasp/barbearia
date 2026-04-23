@@ -1,10 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --primary: #7c3aed;
-  --primary-light: #a78bfa;
-  --primary-dark: #5b21b6;
-  --accent: #f59e0b;
+  /* ===== Korta brand palette ===== */
+  --korta-bg: #0B132B;
+  --korta-surface: #1C2541;
+  --korta-surface-2: #263159;
+  --korta-gold: #D4AF37;
+  --korta-gold-hover: #B8962A;
+  --korta-gold-soft: #E8C866;
+  --korta-text: #F8FAFC;
+  --korta-muted: #94A3B8;
+
+  /* ===== Semantic tokens (admin tema claro; primary = dourado) ===== */
+  --primary: var(--korta-gold);
+  --primary-light: var(--korta-gold-soft);
+  --primary-dark: var(--korta-gold-hover);
+  --accent: var(--korta-gold);
   --success: #10b981;
   --danger: #ef4444;
   --warning: #f59e0b;
@@ -12,13 +23,22 @@
   --foreground: #1e293b;
   --card: #ffffff;
   --border: #e2e8f0;
-  --muted: #94a3b8;
-  --sidebar-bg: #1e1b4b;
-  --sidebar-text: #e2e8f0;
-  --sidebar-hover: #312e81;
+  --muted: #94A3B8;
+  --sidebar-bg: var(--korta-bg);
+  --sidebar-text: var(--korta-text);
+  --sidebar-hover: var(--korta-surface);
 }
 
 @theme inline {
+  --color-korta-bg: var(--korta-bg);
+  --color-korta-surface: var(--korta-surface);
+  --color-korta-surface-2: var(--korta-surface-2);
+  --color-korta-gold: var(--korta-gold);
+  --color-korta-gold-hover: var(--korta-gold-hover);
+  --color-korta-gold-soft: var(--korta-gold-soft);
+  --color-korta-text: var(--korta-text);
+  --color-korta-muted: var(--korta-muted);
+
   --color-primary: var(--primary);
   --color-primary-light: var(--primary-light);
   --color-primary-dark: var(--primary-dark);
@@ -54,4 +74,12 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--muted);
   border-radius: 3px;
+}
+
+/* Scrollbar dark (para superfícies Korta) */
+.korta-surface ::-webkit-scrollbar-track {
+  background: var(--korta-surface);
+}
+.korta-surface ::-webkit-scrollbar-thumb {
+  background: var(--korta-surface-2);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import ParticleBackground from "@/components/effects/ParticleBackground";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -150,7 +151,7 @@ export default function CadastroPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-950 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="korta-surface min-h-screen bg-gradient-to-br from-korta-bg via-korta-bg to-[#060b1a] flex items-center justify-center p-4 relative overflow-hidden">
         <ParticleBackground />
         <div className="w-full max-w-md relative z-10 text-center">
           <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20">
@@ -163,7 +164,7 @@ export default function CadastroPage() {
             </p>
             <Button
               onClick={() => window.location.href = "/"}
-              className="w-full !bg-blue-600 hover:!bg-blue-700"
+              className="w-full !bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
               size="lg"
             >
               Ir para o Login <ArrowRight className="w-4 h-4" />
@@ -175,11 +176,11 @@ export default function CadastroPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-950 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="korta-surface min-h-screen bg-gradient-to-br from-korta-bg via-korta-bg to-[#060b1a] flex items-center justify-center p-4 relative overflow-hidden">
       <ParticleBackground />
 
-      <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-3xl" />
+      <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-korta-gold/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] bg-korta-surface/60 rounded-full blur-3xl" />
 
       <Toaster position="top-right" />
 
@@ -191,21 +192,21 @@ export default function CadastroPage() {
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Criar Conta</h1>
           {storeInfo && (
-            <p className="text-blue-200/70 mt-1 flex items-center justify-center gap-1.5">
+            <p className="text-korta-gold mt-1 flex items-center justify-center gap-1.5">
               <Sparkles className="w-4 h-4" />
               {storeInfo.name}
             </p>
           )}
-          {loadingStore && <p className="text-blue-200/50 mt-1 text-sm">Carregando...</p>}
+          {loadingStore && <p className="text-korta-muted mt-1 text-sm">Carregando...</p>}
         </div>
 
         {/* Steps indicator */}
         <div className="flex items-center justify-center gap-3 mb-6">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 1 ? "bg-blue-500 text-white" : "bg-white/20 text-white/50"}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 1 ? "bg-korta-gold text-korta-bg" : "bg-white/10 text-white/40"}`}>
             1
           </div>
-          <div className={`w-12 h-0.5 ${step >= 2 ? "bg-blue-500" : "bg-white/20"}`} />
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 2 ? "bg-blue-500 text-white" : "bg-white/20 text-white/50"}`}>
+          <div className={`w-12 h-0.5 ${step >= 2 ? "bg-korta-gold" : "bg-white/10"}`} />
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${step >= 2 ? "bg-korta-gold text-korta-bg" : "bg-white/10 text-white/40"}`}>
             2
           </div>
         </div>
@@ -261,7 +262,7 @@ export default function CadastroPage() {
 
                 <Button
                   onClick={() => validateStep1() && setStep(2)}
-                  className="w-full !bg-blue-600 hover:!bg-blue-700"
+                  className="w-full !bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
                   size="lg"
                   disabled={!storeInfo}
                 >
@@ -344,7 +345,7 @@ export default function CadastroPage() {
                         onClick={() => setGender(opt.value)}
                         className={`flex-1 py-2 px-3 rounded-lg border text-sm transition-colors ${
                           gender === opt.value
-                            ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
+                            ? "border-korta-gold bg-korta-gold/10 text-korta-bg font-medium"
                             : "border-gray-200 text-gray-600 hover:border-gray-300"
                         }`}
                       >
@@ -366,7 +367,7 @@ export default function CadastroPage() {
                   <Button
                     onClick={handleSubmit}
                     isLoading={isLoading}
-                    className="flex-[2] !bg-blue-600 hover:!bg-blue-700"
+                    className="flex-[2] !bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
                     size="lg"
                   >
                     Criar conta <ArrowRight className="w-4 h-4" />
@@ -379,12 +380,12 @@ export default function CadastroPage() {
 
         {/* Link para login */}
         <div className="text-center mt-5">
-          <a href="/" className="text-blue-300/60 text-sm hover:text-blue-200/80 transition-colors">
+          <Link href="/" className="text-korta-muted text-sm hover:text-korta-text transition-colors">
             Já tem conta? Faça login
-          </a>
+          </Link>
         </div>
 
-        <p className="text-center text-blue-300/25 text-[10px] mt-4">
+        <p className="text-center text-korta-muted/50 text-[10px] mt-4">
           Barbearia &copy; 2026
         </p>
       </div>
