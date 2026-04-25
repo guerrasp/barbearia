@@ -63,6 +63,12 @@ export default function LandingPage() {
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-6">
         <KortaLogo size="md" priority />
         <div className="flex items-center gap-2 sm:gap-4">
+          <Link
+            href="/para-barbearias"
+            className="hidden sm:inline text-sm text-korta-muted hover:text-korta-text transition-colors"
+          >
+            Planos
+          </Link>
           <button
             onClick={() => setShowAdminLogin(true)}
             className="text-sm text-korta-muted hover:text-korta-text transition-colors"
