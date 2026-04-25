@@ -64,17 +64,34 @@ export async function POST(req: NextRequest) {
 
         const store = await prisma.store.findFirst({
           where: { stripeSubscriptionId: sub.id },
-          select: { id: true },
+          select: { id: true, plan: true },
         });
         if (!store) break;
 
         const periodEnd = (sub as unknown as { current_period_end?: number })
           .current_period_end;
 
+        // Se o priceId não bate nenhum dos nossos planos conhecidos, NÃO
+        // rebaixa silenciosamente — só loga e mantém o plano atual.
+        // Isso protege contra envs faltando ou price ID novo (anual/promo)
+        // que ainda não foi mapeado.
+        if (!plan) {
+          console.error(
+            `[stripe/webhook] priceId desconhecido em subscription.updated: ${priceId} (sub=${sub.id}). Mantendo plano ${store.plan}.`,
+          );
+          await prisma.store.update({
+            where: { id: store.id },
+            data: {
+              planRenewsAt: periodEnd ? new Date(periodEnd * 1000) : null,
+            },
+          });
+          break;
+        }
+
         await prisma.store.update({
           where: { id: store.id },
           data: {
-            plan: plan ?? "FREE",
+            plan,
             planRenewsAt: periodEnd ? new Date(periodEnd * 1000) : null,
           },
         });
@@ -88,12 +105,16 @@ export async function POST(req: NextRequest) {
           select: { id: true },
         });
         if (!store) break;
+        // Cancelou: força trial expirado (epoch) pra que canWrite vire false.
+        // Sem isso, lojas grandfathered (trialEndsAt=NULL) continuariam
+        // escrevendo após cancelar, porque NULL = "nunca expira" no helper.
         await prisma.store.update({
           where: { id: store.id },
           data: {
             plan: "FREE",
             stripeSubscriptionId: null,
             planRenewsAt: null,
+            trialEndsAt: new Date(0),
           },
         });
         break;

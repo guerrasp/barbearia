@@ -13,7 +13,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Korta para barbearias — planos e funcionalidades",
   description:
-    "Receba agendamentos 24h, gerencie barbeiros, comissões e clientes. Planos a partir de grátis.",
+    "Receba agendamentos 24h, gerencie barbeiros, comissões e clientes. 14 dias grátis em qualquer plano, sem cartão.",
 };
 
 interface Plan {
