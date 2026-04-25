@@ -33,6 +33,28 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+/** Upload multipart (FormData). Não seta Content-Type — o browser
+ *  define o boundary automaticamente. Inclui Authorization igual aos
+ *  outros métodos. */
+async function uploadRequest<T>(url: string, formData: FormData): Promise<T> {
+  const token = readAccessToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${url}`, {
+    method: "POST",
+    body: formData,
+    headers,
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+    throw new Error(error.error || `Erro ${res.status}`);
+  }
+
+  return res.json();
+}
+
 export const api = {
   get: <T>(url: string) => request<T>(url),
   post: <T>(url: string, data: unknown) =>
@@ -42,4 +64,5 @@ export const api = {
   patch: <T>(url: string, data: unknown) =>
     request<T>(url, { method: "PATCH", body: JSON.stringify(data) }),
   delete: <T>(url: string) => request<T>(url, { method: "DELETE" }),
+  upload: <T>(url: string, formData: FormData) => uploadRequest<T>(url, formData),
 };

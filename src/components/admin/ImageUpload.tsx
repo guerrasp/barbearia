@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { Upload, Loader2, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { api } from "@/lib/api";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
@@ -61,9 +62,8 @@ export default function ImageUpload({
       form.append("kind", kind);
       if (barberId) form.append("barberId", barberId);
 
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro no upload");
+      // api.upload anexa o JWT no header Authorization automaticamente
+      const data = await api.upload<{ url: string }>("/upload", form);
 
       onChange(data.url);
       toast.success("Imagem atualizada!");
