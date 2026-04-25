@@ -8,6 +8,24 @@ export const runtime = "nodejs"; // crypto/raw body
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+/**
+ * Extrai a data de fim do período corrente da subscription.
+ *
+ * Compatível com 2 formatos da API do Stripe:
+ * - Pré-2025: `subscription.current_period_end` (no nível raiz)
+ * - 2025+: `subscription.items.data[0].current_period_end` (movido pro item)
+ *
+ * Retorna null se nenhum dos dois estiver presente.
+ */
+function extractPeriodEnd(sub: Stripe.Subscription): Date | null {
+  const fromItem = (sub.items?.data?.[0] as unknown as { current_period_end?: number })
+    ?.current_period_end;
+  const fromRoot = (sub as unknown as { current_period_end?: number })
+    .current_period_end;
+  const seconds = fromItem ?? fromRoot;
+  return seconds ? new Date(seconds * 1000) : null;
+}
+
 export async function POST(req: NextRequest) {
   if (!stripe || !webhookSecret) {
     return NextResponse.json(
@@ -43,15 +61,12 @@ export async function POST(req: NextRequest) {
         const plan = priceId ? planFromPriceId(priceId) : null;
         if (!plan) break;
 
-        const periodEnd = (sub as unknown as { current_period_end?: number })
-          .current_period_end;
-
         await prisma.store.update({
           where: { id: storeId },
           data: {
             plan,
             stripeSubscriptionId: subscriptionId,
-            planRenewsAt: periodEnd ? new Date(periodEnd * 1000) : null,
+            planRenewsAt: extractPeriodEnd(sub),
           },
         });
         break;
@@ -68,8 +83,7 @@ export async function POST(req: NextRequest) {
         });
         if (!store) break;
 
-        const periodEnd = (sub as unknown as { current_period_end?: number })
-          .current_period_end;
+        const renewsAt = extractPeriodEnd(sub);
 
         // Se o priceId não bate nenhum dos nossos planos conhecidos, NÃO
         // rebaixa silenciosamente — só loga e mantém o plano atual.
@@ -81,9 +95,7 @@ export async function POST(req: NextRequest) {
           );
           await prisma.store.update({
             where: { id: store.id },
-            data: {
-              planRenewsAt: periodEnd ? new Date(periodEnd * 1000) : null,
-            },
+            data: { planRenewsAt: renewsAt },
           });
           break;
         }
@@ -92,7 +104,7 @@ export async function POST(req: NextRequest) {
           where: { id: store.id },
           data: {
             plan,
-            planRenewsAt: periodEnd ? new Date(periodEnd * 1000) : null,
+            planRenewsAt: renewsAt,
           },
         });
         break;
