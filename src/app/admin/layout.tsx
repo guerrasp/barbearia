@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+import TrialBanner from "@/components/layout/TrialBanner";
 import { Toaster } from "react-hot-toast";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} />
+        <TrialBanner />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gradient-to-br from-slate-50 via-white to-amber-50/30 relative">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-korta-gold/5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-korta-bg/5 rounded-full blur-3xl pointer-events-none" />
