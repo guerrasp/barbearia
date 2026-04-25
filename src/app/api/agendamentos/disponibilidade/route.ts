@@ -1,6 +1,7 @@
 import { getAvailableSlots } from "@/lib/scheduling";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserForStore } from "@/lib/auth-server";
 
 // GET /api/agendamentos/disponibilidade?barberId=...&date=YYYY-MM-DD&durationMinutes=30&step=15
 // Opcionalmente pode-se passar serviceIds="id1,id2,id3" para somar a duração
@@ -18,6 +19,17 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  // Autorização: descobre a loja do barbeiro e exige acesso a ela
+  const barber = await prisma.barber.findUnique({
+    where: { id: barberId },
+    select: { storeId: true },
+  });
+  if (!barber) {
+    return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+  }
+  const auth = await requireUserForStore(req, barber.storeId);
+  if (!auth.ok) return auth.response;
 
   let durationMinutes = 0;
   if (serviceIdsParam) {

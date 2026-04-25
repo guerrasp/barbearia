@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { limitsFor, PLAN_LABELS } from "@/lib/plan-limits";
 import { assertStoreCanWrite } from "@/lib/guards";
+import { requireUserForStore } from "@/lib/auth-server";
 
 const barberSchema = z.object({
   name: z.string().min(2, "Nome obrigatório"),
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
   }
 
+  const auth = await requireUserForStore(req, storeId);
+  if (!auth.ok) return auth.response;
+
   const barbers = await prisma.barber.findMany({
     where: {
       storeId,
@@ -46,6 +50,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = barberSchema.parse(body);
+
+    const auth = await requireUserForStore(req, data.storeId);
+    if (!auth.ok) return auth.response;
 
     // Bloqueia se o trial expirou e não há assinatura
     const blocked = await assertStoreCanWrite(data.storeId);

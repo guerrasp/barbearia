@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireUserForStore } from "@/lib/auth-server";
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -11,9 +12,11 @@ const updateSchema = z.object({
   coverImage: z.string().nullish(),
 });
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const auth = await requireUserForStore(req, id);
+    if (!auth.ok) return auth.response;
     const store = await prisma.store.findUnique({
       where: { id },
       select: {
@@ -39,6 +42,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const auth = await requireUserForStore(req, id);
+    if (!auth.ok) return auth.response;
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
     if (!parsed.success) {

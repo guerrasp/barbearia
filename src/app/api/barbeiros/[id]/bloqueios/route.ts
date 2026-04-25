@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireUserForStore } from "@/lib/auth-server";
 
 const blockSchema = z.object({
   startAt: z.string().datetime({ offset: true }).or(z.string().min(10)),
@@ -8,9 +9,24 @@ const blockSchema = z.object({
   reason: z.string().optional(),
 });
 
+async function loadBarberStore(id: string) {
+  return prisma.barber.findUnique({
+    where: { id },
+    select: { storeId: true },
+  });
+}
+
 // GET - lista bloqueios do barbeiro
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  const ownership = await loadBarberStore(id);
+  if (!ownership) {
+    return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+  }
+  const auth = await requireUserForStore(req, ownership.storeId);
+  if (!auth.ok) return auth.response;
+
   const blocks = await prisma.timeBlock.findMany({
     where: { barberId: id },
     orderBy: { startAt: "desc" },
@@ -23,6 +39,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   try {
+    const ownership = await loadBarberStore(id);
+    if (!ownership) {
+      return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+    }
+    const auth = await requireUserForStore(req, ownership.storeId);
+    if (!auth.ok) return auth.response;
+
     const body = await req.json();
     const data = blockSchema.parse(body);
 

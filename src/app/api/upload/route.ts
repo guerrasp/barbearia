@@ -6,6 +6,7 @@ import {
   pathFromPublicUrl,
   type UploadKind,
 } from "@/lib/storage";
+import { requireUserForStore } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // precisa de Buffer
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
     if (typeof kind !== "string" || !VALID_KINDS.has(kind as UploadKind)) {
       return NextResponse.json({ error: "kind inválido" }, { status: 400 });
     }
+
+    const auth = await requireUserForStore(req, storeId);
+    if (!auth.ok) return auth.response;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await uploadStoreAsset({

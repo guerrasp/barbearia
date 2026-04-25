@@ -1,19 +1,29 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserForStore } from "@/lib/auth-server";
+
+async function loadServiceStore(id: string) {
+  return prisma.service.findUnique({
+    where: { id },
+    select: { storeId: true },
+  });
+}
 
 // GET - buscar serviço por ID
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  const ownership = await loadServiceStore(id);
+  if (!ownership) {
+    return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+  }
+  const auth = await requireUserForStore(req, ownership.storeId);
+  if (!auth.ok) return auth.response;
 
   const service = await prisma.service.findUnique({
     where: { id },
     include: { category: true },
   });
-
-  if (!service) {
-    return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
-  }
-
   return NextResponse.json(service);
 }
 
@@ -22,6 +32,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   try {
+    const ownership = await loadServiceStore(id);
+    if (!ownership) {
+      return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+    }
+    const auth = await requireUserForStore(req, ownership.storeId);
+    if (!auth.ok) return auth.response;
+
     const body = await req.json();
     // Partial update: só atualiza campos presentes no body.
     const data: Record<string, unknown> = {};
@@ -46,10 +63,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // DELETE - remover serviço (soft delete: marca como inativo se tiver histórico de agendamentos)
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
+    const ownership = await loadServiceStore(id);
+    if (!ownership) {
+      return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+    }
+    const auth = await requireUserForStore(req, ownership.storeId);
+    if (!auth.ok) return auth.response;
+
     const linked = await prisma.appointmentService.count({ where: { serviceId: id } });
     if (linked > 0) {
       // soft delete: mantém histórico

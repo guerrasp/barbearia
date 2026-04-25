@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserForStore } from "@/lib/auth-server";
 
 // GET - Dados do dashboard (barbearia)
 export async function GET(req: NextRequest) {
@@ -9,6 +10,9 @@ export async function GET(req: NextRequest) {
   if (!storeId) {
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
   }
+
+  const auth = await requireUserForStore(req, storeId);
+  if (!auth.ok) return auth.response;
 
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());

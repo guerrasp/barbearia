@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import KortaLogo from "@/components/brand/KortaLogo";
 import {
   ShieldCheck,
@@ -52,19 +53,19 @@ export default function SuperPage() {
     }
     (async () => {
       try {
-        const res = await fetch("/api/super/stores", {
-          headers: { "x-user-email": user.email },
-        });
-        if (res.status === 403) {
-          setError("Você não tem acesso ao painel super-admin.");
-          return;
-        }
-        if (!res.ok) throw new Error("Falha ao carregar lojas");
-        const data = await res.json();
+        // Usa o api client (envia Bearer JWT automaticamente via lib/api)
+        const data = await api.get<{ stores: SuperStore[]; totals: Totals }>(
+          "/super/stores",
+        );
         setStores(data.stores);
         setTotals(data.totals);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Erro");
+        const msg = e instanceof Error ? e.message : "Erro";
+        if (msg.toLowerCase().includes("forbidden") || msg.includes("403")) {
+          setError("Você não tem acesso ao painel super-admin.");
+        } else {
+          setError(msg);
+        }
       } finally {
         setLoading(false);
       }

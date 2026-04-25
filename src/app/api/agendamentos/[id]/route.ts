@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { checkAvailability } from "@/lib/scheduling";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireUserForStore } from "@/lib/auth-server";
 
 const statusEnum = z.enum([
   "SCHEDULED",
@@ -28,7 +29,7 @@ const updateSchema = z.object({
 });
 
 // GET - detalhes
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const appointment = await prisma.appointment.findUnique({
     where: { id },
@@ -42,6 +43,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!appointment) {
     return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
   }
+  const auth = await requireUserForStore(req, appointment.storeId);
+  if (!auth.ok) return auth.response;
   return NextResponse.json(appointment);
 }
 
@@ -60,6 +63,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!existing) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
+
+    const auth = await requireUserForStore(req, existing.storeId);
+    if (!auth.ok) return auth.response;
 
     const update: Record<string, unknown> = {};
 
@@ -195,7 +201,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // DELETE - soft-cancel se status != SCHEDULED; hard delete se ainda SCHEDULED
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
@@ -203,6 +209,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (!existing) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
+
+    const auth = await requireUserForStore(req, existing.storeId);
+    if (!auth.ok) return auth.response;
 
     if (existing.status === "SCHEDULED") {
       await prisma.appointment.delete({ where: { id } });

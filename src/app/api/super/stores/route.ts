@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/lib/super-admin";
+import { getAuthUser } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const auth = requireSuperAdmin(req);
-  if (!auth.ok) {
+  // Validação real via JWT do Supabase + checa flag isSuperAdmin no DB
+  const auth = await getAuthUser(req);
+  if (!auth.ok) return auth.response;
+  if (!auth.user.isSuperAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

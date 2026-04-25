@@ -1,8 +1,27 @@
 const BASE_URL = "/api";
 
+/** Lê o access token salvo no localStorage pelo AuthContext. SSR-safe. */
+function readAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("bella_session");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.access_token === "string" ? parsed.access_token : null;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = readAccessToken();
+  const baseHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) baseHeaders["Authorization"] = `Bearer ${token}`;
+
   const res = await fetch(`${BASE_URL}${url}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: { ...baseHeaders, ...(options?.headers as Record<string, string>) },
     ...options,
   });
 

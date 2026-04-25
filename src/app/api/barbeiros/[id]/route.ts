@@ -1,9 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserForStore } from "@/lib/auth-server";
+
+async function loadBarberStore(id: string) {
+  return prisma.barber.findUnique({
+    where: { id },
+    select: { storeId: true },
+  });
+}
 
 // GET - barbeiro por ID com horários e bloqueios
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  const ownership = await loadBarberStore(id);
+  if (!ownership) {
+    return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+  }
+  const auth = await requireUserForStore(req, ownership.storeId);
+  if (!auth.ok) return auth.response;
 
   const barber = await prisma.barber.findUnique({
     where: { id },
@@ -14,10 +29,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     },
   });
 
-  if (!barber) {
-    return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
-  }
-
   return NextResponse.json(barber);
 }
 
@@ -26,6 +37,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   try {
+    const ownership = await loadBarberStore(id);
+    if (!ownership) {
+      return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+    }
+    const auth = await requireUserForStore(req, ownership.storeId);
+    if (!auth.ok) return auth.response;
+
     const body = await req.json();
     const data: Record<string, unknown> = {};
     if (body.name !== undefined) data.name = body.name;
@@ -44,10 +62,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // DELETE - soft delete se houver agendamentos, hard se não
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
+    const ownership = await loadBarberStore(id);
+    if (!ownership) {
+      return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+    }
+    const auth = await requireUserForStore(req, ownership.storeId);
+    if (!auth.ok) return auth.response;
+
     const linked = await prisma.appointment.count({ where: { barberId: id } });
     if (linked > 0) {
       const barber = await prisma.barber.update({

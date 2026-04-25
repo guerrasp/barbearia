@@ -3,6 +3,7 @@ import { checkAvailability, generateAppointmentCode } from "@/lib/scheduling";
 import { sendAppointmentConfirmation } from "@/lib/notifications";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { requireUserForStore } from "@/lib/auth-server";
 
 const createSchema = z.object({
   storeId: z.string().min(1),
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
   if (!storeId) {
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
   }
+
+  const auth = await requireUserForStore(req, storeId);
+  if (!auth.ok) return auth.response;
 
   const where: Record<string, unknown> = { storeId };
   if (barberId) where.barberId = barberId;
@@ -69,6 +73,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = createSchema.parse(body);
+
+    const auth = await requireUserForStore(req, data.storeId);
+    if (!auth.ok) return auth.response;
 
     // Busca serviços para calcular duração total + preço congelado
     const services = await prisma.service.findMany({

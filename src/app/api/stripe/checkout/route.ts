@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { stripe, priceIdForPlan } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { requireUserForStore } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const data = bodySchema.parse(await req.json());
+
+    const auth = await requireUserForStore(req, data.storeId);
+    if (!auth.ok) return auth.response;
 
     const store = await prisma.store.findUnique({
       where: { id: data.storeId },
