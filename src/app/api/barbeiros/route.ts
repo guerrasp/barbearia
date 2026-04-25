@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { limitsFor, PLAN_LABELS } from "@/lib/plan-limits";
+import { assertStoreCanWrite } from "@/lib/guards";
 
 const barberSchema = z.object({
   name: z.string().min(2, "Nome obrigatório"),
@@ -45,6 +46,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = barberSchema.parse(body);
+
+    // Bloqueia se o trial expirou e não há assinatura
+    const blocked = await assertStoreCanWrite(data.storeId);
+    if (blocked) return blocked;
 
     // Verifica limite de barbeiros do plano
     const store = await prisma.store.findUnique({

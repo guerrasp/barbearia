@@ -31,6 +31,7 @@ model Store {
   stripeCustomerId     String?   @unique @map("stripe_customer_id")
   stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
   planRenewsAt         DateTime? @map("plan_renews_at")
+  trialEndsAt          DateTime? @map("trial_ends_at")
 
   users        User[]
   services     Service[]

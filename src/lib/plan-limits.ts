@@ -5,6 +5,10 @@ import type { Plan } from "@/generated/prisma/client";
  *
  * Convenção: `Infinity` = sem limite. Use `Number.isFinite(limit)` antes
  * de comparar quando quiser detectar "ilimitado".
+ *
+ * IMPORTANTE: o enum `Plan` ainda usa "FREE" por compatibilidade com a
+ * migration original, mas semanticamente FREE = "Pioneiro" (R$ 39,90/mês,
+ * com 14 dias de trial sem cartão).
  */
 export interface PlanLimits {
   maxBarbers: number;
@@ -15,7 +19,7 @@ export interface PlanLimits {
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   FREE: {
-    maxBarbers: 1,
+    maxBarbers: 2,
     smsReminders: false,
     multiUnit: false,
     advancedReports: false,
@@ -40,6 +44,20 @@ export const PLAN_LABELS: Record<Plan, string> = {
   BUSINESS: "Business",
 };
 
+/** Preço mensal em centavos — só para exibição. O preço real cobrado vem do
+ *  Stripe (Price ID configurado por ambiente). */
+export const PLAN_PRICES_BRL: Record<Plan, number> = {
+  FREE: 3990,
+  PRO: 6990,
+  BUSINESS: 9990,
+};
+
+export const TRIAL_DAYS = 14;
+
 export function limitsFor(plan: Plan): PlanLimits {
   return PLAN_LIMITS[plan];
+}
+
+export function formatPriceBRL(cents: number): string {
+  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
 }

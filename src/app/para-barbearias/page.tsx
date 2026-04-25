@@ -31,14 +31,14 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     name: "Pioneiro",
-    badge: "Grátis",
-    price: "R$ 0",
-    priceSuffix: "para sempre",
-    description: "Tudo que você precisa para colocar a barbearia online hoje.",
-    cta: { label: "Criar minha loja", href: "/criar-loja" },
+    badge: "14 dias grátis",
+    price: "R$ 39,90",
+    priceSuffix: "/mês",
+    description: "Para começar agora — sem cartão nos 14 dias de teste.",
+    cta: { label: "Começar trial grátis", href: "/criar-loja" },
     icon: <Rocket className="w-5 h-5" />,
     features: [
-      "1 barbeiro ativo",
+      "Até 2 barbeiros",
       "Agendamentos ilimitados",
       "Link público próprio",
       "Lembrete por email (24h antes)",
@@ -48,10 +48,10 @@ const PLANS: Plan[] = [
   {
     name: "Pro",
     badge: "Mais popular",
-    price: "R$ 49",
+    price: "R$ 69,90",
     priceSuffix: "/mês",
     description: "Para barbearias que cresceram do dono solo para uma equipe.",
-    cta: { label: "Começar com Pro", href: "/criar-loja?plan=PRO" },
+    cta: { label: "Começar trial grátis", href: "/criar-loja?plan=PRO" },
     highlight: true,
     icon: <Sparkles className="w-5 h-5" />,
     features: [
@@ -64,10 +64,10 @@ const PLANS: Plan[] = [
   },
   {
     name: "Business",
-    price: "R$ 99",
+    price: "R$ 99,90",
     priceSuffix: "/mês",
     description: "Multi-unidades, time grande e relatórios avançados.",
-    cta: { label: "Falar com vendas", href: "/criar-loja?plan=BUSINESS" },
+    cta: { label: "Começar trial grátis", href: "/criar-loja?plan=BUSINESS" },
     icon: <Crown className="w-5 h-5" />,
     features: [
       "Barbeiros ilimitados",
@@ -110,8 +110,8 @@ export default function ParaBarbeariaPage() {
             <span className="text-korta-gold">você</span>.
           </h1>
           <p className="mt-4 text-lg text-korta-muted max-w-2xl mx-auto">
-            Comece grátis hoje. Faça upgrade quando seu time crescer. Pioneiros mantêm
-            preço de fundador para sempre.
+            14 dias grátis em qualquer plano. Sem cartão para começar. Cancele
+            quando quiser.
           </p>
         </section>
 
@@ -130,8 +130,8 @@ export default function ParaBarbeariaPage() {
           <div className="mt-8 grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
             <Faq
               q="Preciso de cartão para começar?"
-              a="Não. O plano Pioneiro é grátis para sempre e não pede cartão. Você só
-              precisa do nome da loja e um email."
+              a="Não. Você tem 14 dias para testar tudo sem informar cartão.
+              No fim do trial você escolhe um plano para continuar."
             />
             <Faq
               q="Como meu cliente agenda?"
@@ -140,9 +140,9 @@ export default function ParaBarbeariaPage() {
               horário em poucos toques."
             />
             <Faq
-              q="Posso migrar meus dados depois?"
-              a="Sim. Quando os planos pagos chegarem, você faz upgrade direto pelo
-              painel sem perder histórico nem precisar refazer agenda."
+              q="Posso trocar de plano depois?"
+              a="Sim. Você troca direto pelo painel a qualquer momento, sem
+              perder histórico nem precisar refazer agenda."
             />
             <Faq
               q="E se eu tiver mais de uma unidade?"
@@ -159,13 +159,13 @@ export default function ParaBarbeariaPage() {
             Bora colocar sua barbearia no piloto automático?
           </h2>
           <p className="text-korta-muted mt-3 max-w-xl mx-auto">
-            2 minutos para configurar. Sem cartão. Suporte ao lado.
+            14 dias grátis. 2 minutos para configurar. Sem cartão.
           </p>
           <Link
             href="/criar-loja"
             className="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-lg bg-korta-gold text-korta-bg font-semibold hover:bg-korta-gold-hover transition-colors"
           >
-            Criar minha loja grátis <ArrowRight className="w-4 h-4" />
+            Começar trial grátis <ArrowRight className="w-4 h-4" />
           </Link>
         </section>
       </main>

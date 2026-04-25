@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { assertStoreCanWrite } from "@/lib/guards";
 
 const serviceSchema = z.object({
   name: z.string().min(2, "Nome obrigatório"),
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = serviceSchema.parse(body);
+
+    const blocked = await assertStoreCanWrite(data.storeId);
+    if (blocked) return blocked;
 
     const service = await prisma.service.create({
       data: {

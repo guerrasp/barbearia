@@ -6,9 +6,8 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  plan: z.enum(["PRO", "BUSINESS"]),
-  // Email do usuário logado (mesmo modelo de auth do resto do app — header
-  // x-user-email vindo do AuthContext do client).
+  // FREE = "Pioneiro" (R$ 39,90), PRO (R$ 69,90), BUSINESS (R$ 99,90)
+  plan: z.enum(["FREE", "PRO", "BUSINESS"]),
   storeId: z.string(),
 });
 

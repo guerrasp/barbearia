@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import { Crown, Check, ExternalLink, Sparkles, Zap } from "lucide-react";
+import {
+  Crown,
+  Check,
+  ExternalLink,
+  Sparkles,
+  Zap,
+  Rocket,
+  Clock,
+  AlertTriangle,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
@@ -15,6 +24,13 @@ interface PlanInfo {
   plan: Plan;
   planRenewsAt: string | null;
   hasSubscription: boolean;
+  trial: {
+    active: boolean;
+    expired: boolean;
+    endsAt: string | null;
+    daysLeft: number | null;
+  };
+  canWrite: boolean;
   usage: { barbers: number };
   limits: {
     maxBarbers: number | null;
@@ -31,17 +47,22 @@ const PLAN_LABELS: Record<Plan, string> = {
 };
 
 const PLAN_PRICES: Record<Plan, string> = {
-  FREE: "Grátis",
-  PRO: "R$ 49/mês",
-  BUSINESS: "R$ 99/mês",
+  FREE: "R$ 39,90/mês",
+  PRO: "R$ 69,90/mês",
+  BUSINESS: "R$ 99,90/mês",
 };
 
 const PLAN_BENEFITS: Record<Plan, string[]> = {
-  FREE: ["1 barbeiro", "Agendamentos ilimitados", "Página pública da loja"],
+  FREE: [
+    "Até 2 barbeiros",
+    "Agendamentos ilimitados",
+    "Página pública da loja",
+    "Lembrete por email",
+  ],
   PRO: [
     "Até 5 barbeiros",
     "Lembretes por SMS",
-    "Suporte por email",
+    "Suporte prioritário",
     "Tudo do Pioneiro",
   ],
   BUSINESS: [
@@ -50,6 +71,12 @@ const PLAN_BENEFITS: Record<Plan, string[]> = {
     "Relatórios avançados",
     "Tudo do Pro",
   ],
+};
+
+const PLAN_ICONS: Record<Plan, React.ReactNode> = {
+  FREE: <Rocket className="w-5 h-5" />,
+  PRO: <Sparkles className="w-5 h-5" />,
+  BUSINESS: <Zap className="w-5 h-5" />,
 };
 
 export default function PlanoPage() {
@@ -89,7 +116,7 @@ export default function PlanoPage() {
     };
   }, [storeId]);
 
-  const handleUpgrade = async (plan: "PRO" | "BUSINESS") => {
+  const handleSubscribe = async (plan: Plan) => {
     if (!storeId) return;
     setActionLoading(plan);
     try {
@@ -132,9 +159,20 @@ export default function PlanoPage() {
   const renewsAt = info.planRenewsAt
     ? new Date(info.planRenewsAt).toLocaleDateString("pt-BR")
     : null;
+  const trialEndsAt = info.trial.endsAt
+    ? new Date(info.trial.endsAt).toLocaleDateString("pt-BR")
+    : null;
   const limit = info.limits.maxBarbers;
   const usage = info.usage.barbers;
   const usagePct = limit ? Math.min(100, (usage / limit) * 100) : 0;
+
+  // Lista de planos disponíveis para upgrade (não mostra o plano atual se já pago)
+  const plansToShow: Plan[] = (["FREE", "PRO", "BUSINESS"] as Plan[]).filter((p) => {
+    // Se está no trial (sem assinatura), mostra todos os 3 incluindo Pioneiro
+    if (!info.hasSubscription) return true;
+    // Já tem assinatura: só mostra planos diferentes do atual
+    return p !== currentPlan;
+  });
 
   return (
     <div className="space-y-6">
@@ -145,21 +183,54 @@ export default function PlanoPage() {
         </p>
       </div>
 
+      {/* Banner de trial */}
+      {info.trial.active && !info.hasSubscription && (
+        <div className="max-w-3xl rounded-xl border border-korta-gold/30 bg-korta-gold/5 p-4 flex items-start gap-3">
+          <Clock className="w-5 h-5 text-korta-gold flex-none mt-0.5" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-foreground">
+              {info.trial.daysLeft === 1
+                ? "Último dia do seu período de avaliação"
+                : `Você tem ${info.trial.daysLeft} dias de avaliação restantes`}
+            </p>
+            <p className="text-muted mt-0.5">
+              Acaba em {trialEndsAt}. Escolha um plano abaixo pra continuar sem
+              interrupção.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {info.trial.expired && (
+        <div className="max-w-3xl rounded-xl border border-danger/30 bg-danger/5 p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-danger flex-none mt-0.5" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-foreground">
+              Seu período de avaliação acabou
+            </p>
+            <p className="text-muted mt-0.5">
+              Assine um plano para reativar agendamentos e edições da loja.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Plano atual */}
       <Card className="max-w-3xl">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 text-sm text-muted">
               <Crown className="w-4 h-4 text-korta-gold" />
-              Plano atual
+              {info.hasSubscription ? "Plano atual" : "Plano em avaliação"}
             </div>
             <div className="mt-1 text-3xl font-bold text-foreground">
               {PLAN_LABELS[currentPlan]}
             </div>
             <div className="text-sm text-muted mt-1">
               {PLAN_PRICES[currentPlan]}
-              {renewsAt && info.hasSubscription && (
-                <> · Renova em {renewsAt}</>
+              {renewsAt && info.hasSubscription && <> · Renova em {renewsAt}</>}
+              {!info.hasSubscription && trialEndsAt && (
+                <> · Trial até {trialEndsAt}</>
               )}
             </div>
           </div>
@@ -194,64 +265,53 @@ export default function PlanoPage() {
         </div>
       </Card>
 
-      {/* Upgrade */}
-      {currentPlan !== "BUSINESS" && (
+      {/* Planos disponíveis */}
+      {plansToShow.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3">
-            Faça upgrade
+            {info.hasSubscription ? "Trocar plano" : "Escolha um plano"}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-            {currentPlan === "FREE" && (
-              <Card className="border-2 border-korta-gold/40">
-                <div className="flex items-center gap-2 text-korta-gold">
-                  <Sparkles className="w-5 h-5" />
-                  <span className="font-bold">Pro</span>
-                </div>
-                <div className="mt-2 text-2xl font-bold text-foreground">
-                  R$ 49<span className="text-sm text-muted">/mês</span>
-                </div>
-                <ul className="mt-4 space-y-2 text-sm">
-                  {PLAN_BENEFITS.PRO.map((b) => (
-                    <li key={b} className="flex items-start gap-2">
-                      <Check className="w-4 h-4 text-success flex-none mt-0.5" />
-                      <span className="text-foreground">{b}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className="w-full mt-4"
-                  onClick={() => handleUpgrade("PRO")}
-                  isLoading={actionLoading === "PRO"}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl">
+            {plansToShow.map((plan) => {
+              const isCurrent = plan === currentPlan && !info.hasSubscription;
+              const highlight = plan === "FREE";
+              return (
+                <Card
+                  key={plan}
+                  className={highlight ? "border-2 border-korta-gold/40" : ""}
                 >
-                  Assinar Pro
-                </Button>
-              </Card>
-            )}
-            <Card>
-              <div className="flex items-center gap-2 text-foreground">
-                <Zap className="w-5 h-5 text-korta-gold" />
-                <span className="font-bold">Business</span>
-              </div>
-              <div className="mt-2 text-2xl font-bold text-foreground">
-                R$ 99<span className="text-sm text-muted">/mês</span>
-              </div>
-              <ul className="mt-4 space-y-2 text-sm">
-                {PLAN_BENEFITS.BUSINESS.map((b) => (
-                  <li key={b} className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-success flex-none mt-0.5" />
-                    <span className="text-foreground">{b}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant="secondary"
-                className="w-full mt-4"
-                onClick={() => handleUpgrade("BUSINESS")}
-                isLoading={actionLoading === "BUSINESS"}
-              >
-                Assinar Business
-              </Button>
-            </Card>
+                  <div className="flex items-center gap-2 text-korta-gold">
+                    {PLAN_ICONS[plan]}
+                    <span className="font-bold">{PLAN_LABELS[plan]}</span>
+                    {isCurrent && (
+                      <span className="ml-auto text-[10px] uppercase tracking-wide bg-korta-gold/15 text-korta-gold px-2 py-0.5 rounded-full">
+                        Em trial
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-foreground">
+                    {PLAN_PRICES[plan].split("/")[0]}
+                    <span className="text-sm text-muted">/mês</span>
+                  </div>
+                  <ul className="mt-4 space-y-2 text-sm">
+                    {PLAN_BENEFITS[plan].map((b) => (
+                      <li key={b} className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-success flex-none mt-0.5" />
+                        <span className="text-foreground">{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    className="w-full mt-4"
+                    variant={highlight ? "primary" : "secondary"}
+                    onClick={() => handleSubscribe(plan)}
+                    isLoading={actionLoading === plan}
+                  >
+                    Assinar {PLAN_LABELS[plan]}
+                  </Button>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}

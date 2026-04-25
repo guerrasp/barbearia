@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { checkAvailability, generateAppointmentCode } from "@/lib/scheduling";
 import { sendAppointmentConfirmation } from "@/lib/notifications";
+import { getTrialStatus } from "@/lib/trial";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -26,9 +27,28 @@ export async function POST(
     const body = await req.json();
     const data = schema.parse(body);
 
-    const store = await prisma.store.findUnique({ where: { slug } });
+    const store = await prisma.store.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        trialEndsAt: true,
+        stripeSubscriptionId: true,
+      },
+    });
     if (!store) {
       return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 });
+    }
+
+    // Bloqueia agendamento público se a loja está com trial expirado e sem assinatura
+    const trial = getTrialStatus({
+      trialEndsAt: store.trialEndsAt,
+      stripeSubscriptionId: store.stripeSubscriptionId,
+    });
+    if (!trial.canWrite) {
+      return NextResponse.json(
+        { error: "Esta loja está temporariamente fora do ar. Tente novamente em breve." },
+        { status: 503 },
+      );
     }
 
     // Valida barbeiro ativo da loja

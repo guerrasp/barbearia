@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { computeTrialDeadline } from "@/lib/trial";
 
 const RESERVED = new Set([
   "admin",
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
           slug: data.slug,
           email: data.email,
           phone: data.phone || null,
+          trialEndsAt: computeTrialDeadline(),
         },
       });
 

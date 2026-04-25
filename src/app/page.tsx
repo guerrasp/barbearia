@@ -116,7 +116,7 @@ export default function LandingPage() {
                       size="lg"
                     >
                       <Scissors className="w-4 h-4" />
-                      Criar minha loja grátis
+                      Começar trial grátis
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   </Link>
@@ -130,7 +130,7 @@ export default function LandingPage() {
 
                 <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-korta-muted">
                   <span className="inline-flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-korta-gold" /> Sem cartão
+                    <Check className="w-3.5 h-3.5 text-korta-gold" /> 14 dias grátis · sem cartão
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-korta-gold" /> Pronto em 2 min
@@ -212,18 +212,18 @@ export default function LandingPage() {
               <div className="bg-korta-surface rounded-2xl p-8 sm:p-12 border border-korta-gold/15 text-center">
                 <Sparkles className="w-8 h-8 text-korta-gold mx-auto mb-4" />
                 <h2 className="text-3xl font-bold text-korta-text">
-                  Comece grátis. Cresça sem fricção.
+                  Teste 14 dias grátis. Sem compromisso.
                 </h2>
                 <p className="text-korta-muted mt-3 max-w-xl mx-auto">
                   Crie sua barbearia agora, configure em 2 minutos e já receba agendamentos
-                  hoje. Pioneiros mantêm preço de fundador quando os planos pagos chegarem.
+                  hoje. No fim do trial você escolhe um plano para continuar.
                 </p>
                 <Link href="/criar-loja">
                   <Button
                     className="mt-6 !bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
                     size="lg"
                   >
-                    Criar minha loja grátis <ArrowRight className="w-4 h-4" />
+                    Começar trial grátis <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
               </div>
