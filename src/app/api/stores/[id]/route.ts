@@ -8,6 +8,7 @@ const updateSchema = z.object({
   email: z.string().email().nullish().or(z.literal("")),
   address: z.string().nullish(),
   logo: z.string().nullish(),
+  coverImage: z.string().nullish(),
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -23,6 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         email: true,
         address: true,
         logo: true,
+        coverImage: true,
       },
     });
     if (!store) {
@@ -52,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(data.email !== undefined && { email: data.email || null }),
         ...(data.address !== undefined && { address: data.address || null }),
         ...(data.logo !== undefined && { logo: data.logo || null }),
+        ...(data.coverImage !== undefined && { coverImage: data.coverImage || null }),
       },
       select: {
         id: true,
@@ -61,6 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         email: true,
         address: true,
         logo: true,
+        coverImage: true,
       },
     });
 

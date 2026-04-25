@@ -40,6 +40,8 @@ interface Store {
   phone: string | null;
   email: string | null;
   address: string | null;
+  logo: string | null;
+  coverImage: string | null;
 }
 
 interface Confirmation {
@@ -196,18 +198,45 @@ export default function BookingPage({
   }
 
   return (
-    <div className="korta-surface relative min-h-screen bg-korta-bg py-8 px-4 overflow-hidden">
-      {/* Decor */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-korta-bg via-korta-bg to-[#060b1a]" />
-      <div className="pointer-events-none absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-korta-gold/10 rounded-full blur-[120px]" />
-      <div className="pointer-events-none absolute bottom-[-20%] left-[-15%] w-[400px] h-[400px] bg-korta-surface/60 rounded-full blur-[100px]" />
+    <div className="korta-surface relative min-h-screen bg-korta-bg overflow-hidden">
+      {/* Decor (some quando tem capa pra não competir com a foto) */}
+      {!store.coverImage && (
+        <>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-korta-bg via-korta-bg to-[#060b1a]" />
+          <div className="pointer-events-none absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-korta-gold/10 rounded-full blur-[120px]" />
+          <div className="pointer-events-none absolute bottom-[-20%] left-[-15%] w-[400px] h-[400px] bg-korta-surface/60 rounded-full blur-[100px]" />
+        </>
+      )}
       <Toaster position="top-right" />
-      <div className="relative z-10 max-w-2xl mx-auto">
-        {/* Header */}
+
+      {/* Capa */}
+      {store.coverImage && (
+        <div className="relative h-44 sm:h-56 w-full overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={store.coverImage}
+            alt={`Capa de ${store.name}`}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-korta-bg/40 via-korta-bg/60 to-korta-bg" />
+        </div>
+      )}
+
+      <div className={`relative z-10 max-w-2xl mx-auto px-4 pb-8 ${store.coverImage ? "-mt-16" : "py-8"}`}>
+        {/* Header com logo ou ícone padrão */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-korta-gold/10 border border-korta-gold/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Scissors className="w-7 h-7 text-korta-gold" />
-          </div>
+          {store.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={store.logo}
+              alt={`Logo de ${store.name}`}
+              className="w-20 h-20 rounded-2xl object-cover border-2 border-korta-gold/30 shadow-2xl shadow-black/40 mx-auto mb-3 bg-korta-surface"
+            />
+          ) : (
+            <div className="w-14 h-14 bg-korta-gold/10 border border-korta-gold/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <Scissors className="w-7 h-7 text-korta-gold" />
+            </div>
+          )}
           <h1 className="text-2xl font-bold text-korta-text">{store.name}</h1>
           {store.address && (
             <p className="text-zinc-400 text-xs flex items-center justify-center gap-1 mt-1">

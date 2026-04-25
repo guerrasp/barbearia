@@ -14,6 +14,7 @@ import {
   CalendarRange,
   Settings,
   Crown,
+  Palette,
   LogOut,
   X,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const menuItems = [
   { href: "/admin/barbeiros", label: "Barbeiros", icon: UserCog },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
   { href: "/admin/configuracoes/plano", label: "Plano", icon: Crown },
+  { href: "/admin/configuracoes/personalizacao", label: "Personalização", icon: Palette },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 

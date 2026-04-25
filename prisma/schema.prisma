@@ -21,8 +21,9 @@ model Store {
   slug      String   @unique
   phone     String?
   email     String?
-  address   String?
-  logo      String?
+  address    String?
+  logo       String?
+  coverImage String? @map("cover_image")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

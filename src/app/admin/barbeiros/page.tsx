@@ -7,6 +7,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
+import ImageUpload from "@/components/admin/ImageUpload";
 import {
   Plus,
   Search,
@@ -284,6 +285,33 @@ export default function BarbeirosPage() {
 
         {(tab === "data" || !editing) && (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Foto do barbeiro — só pra barbeiros já criados */}
+            {editing && store && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Foto
+                </label>
+                <ImageUpload
+                  value={editing.photo}
+                  onChange={(url) => {
+                    setEditing({ ...editing, photo: url });
+                    fetchBarbers();
+                  }}
+                  kind="barber"
+                  storeId={store.id}
+                  barberId={editing.id}
+                  aspect="square"
+                  hint="Quadrada · até 5 MB"
+                  onRemove={async () => {
+                    await api.put(`/barbeiros/${editing.id}`, { photo: null });
+                    setEditing({ ...editing, photo: null });
+                    fetchBarbers();
+                    toast.success("Foto removida");
+                  }}
+                />
+              </div>
+            )}
+
             <Input
               label="Nome *"
               placeholder="Ex.: João Silva"
