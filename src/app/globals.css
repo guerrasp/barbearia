@@ -83,3 +83,44 @@ body {
 .korta-surface ::-webkit-scrollbar-thumb {
   background: var(--korta-surface-2);
 }
+
+/* ===== Prose dark (termos / privacidade) =====
+ * Tipografia simples para páginas de conteúdo. Tema escuro Korta.
+ */
+.prose-korta {
+  color: var(--korta-text);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.prose-korta h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.prose-korta h2 {
+  color: var(--korta-gold);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 32px 0 8px;
+}
+.prose-korta p {
+  margin: 0 0 12px;
+  color: var(--korta-text);
+}
+.prose-korta ul {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  color: var(--korta-text);
+}
+.prose-korta li {
+  margin: 4px 0;
+}
+.prose-korta a {
+  color: var(--korta-gold);
+  text-decoration: underline;
+}
+.prose-korta strong {
+  color: var(--korta-text);
+  font-weight: 600;
+}

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { checkAvailability, generateAppointmentCode } from "@/lib/scheduling";
-import { sendAppointmentConfirmation } from "@/lib/notifications";
+import { sendAppointmentConfirmation, sendNewAppointmentToOwner } from "@/lib/notifications";
 import { getTrialStatus } from "@/lib/trial";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -140,9 +140,14 @@ export async function POST(
       },
     });
 
-    // Dispara email de confirmação (não bloqueia resposta)
+    // Dispara emails (não bloqueiam resposta):
+    // - confirmação para o cliente
+    // - notificação para o dono da loja
     sendAppointmentConfirmation(appointment.id).catch((e) =>
-      console.error("Falha ao enviar confirmação:", e),
+      console.error("Falha ao enviar confirmação ao cliente:", e),
+    );
+    sendNewAppointmentToOwner(appointment.id).catch((e) =>
+      console.error("Falha ao notificar dono da loja:", e),
     );
 
     return NextResponse.json(

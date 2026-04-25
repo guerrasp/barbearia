@@ -174,6 +174,15 @@ export default function ParaBarbeariaPage() {
         <p className="text-xs text-korta-muted/70">
           Korta &copy; 2026 · agendamento para barbearias
         </p>
+        <p className="text-xs text-korta-muted/60 mt-2 flex items-center justify-center gap-3">
+          <Link href="/termos" className="hover:text-korta-text transition-colors">
+            Termos
+          </Link>
+          <span>·</span>
+          <Link href="/privacidade" className="hover:text-korta-text transition-colors">
+            Privacidade
+          </Link>
+        </p>
       </footer>
     </div>
   );

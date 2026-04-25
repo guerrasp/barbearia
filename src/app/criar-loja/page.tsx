@@ -61,6 +61,7 @@ export default function CriarLojaPage() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Host dinâmico para preview do link público (resolve no client após mount)
   const [hostPrefix, setHostPrefix] = useState("seu-site/agendar/");
@@ -102,7 +103,8 @@ export default function CriarLojaPage() {
     ownerName.trim().length >= 2 &&
     /\S+@\S+\.\S+/.test(email) &&
     password.length >= 8 &&
-    passwordsMatch;
+    passwordsMatch &&
+    acceptedTerms;
 
   const submit = async () => {
     setSubmitting(true);
@@ -314,6 +316,34 @@ export default function CriarLojaPage() {
                 exemplo (Corte, Barba, Combo) e horário padrão de seg a sáb. Você ajusta
                 tudo depois.
               </p>
+
+              <label className="flex items-start gap-2 text-xs text-korta-muted cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 accent-korta-gold cursor-pointer"
+                />
+                <span>
+                  Li e concordo com os{" "}
+                  <Link
+                    href="/termos"
+                    target="_blank"
+                    className="text-korta-gold hover:underline"
+                  >
+                    Termos de uso
+                  </Link>{" "}
+                  e a{" "}
+                  <Link
+                    href="/privacidade"
+                    target="_blank"
+                    className="text-korta-gold hover:underline"
+                  >
+                    Política de privacidade
+                  </Link>
+                  .
+                </span>
+              </label>
 
               <div className="flex items-center justify-between pt-2">
                 <button

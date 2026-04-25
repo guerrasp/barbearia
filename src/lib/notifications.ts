@@ -19,7 +19,7 @@ async function loadAppointment(appointmentId: string) {
   return prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: {
-      store: { select: { name: true, phone: true, address: true } },
+      store: { select: { name: true, phone: true, address: true, email: true, slug: true } },
       customer: { select: { name: true, email: true, phone: true } },
       barber: { select: { name: true } },
       services: { include: { service: { select: { name: true } } } },
@@ -69,6 +69,54 @@ export async function sendAppointmentConfirmation(appointmentId: string) {
     from: EMAIL_FROM,
     to: ap.customer.email,
     subject: `Agendamento confirmado — ${ap.code}`,
+    html,
+  });
+  return { sent: true as const, id: res.data?.id };
+}
+
+/**
+ * Notifica o dono da loja sobre um novo agendamento (origem PUBLIC).
+ * Usa o `store.email` cadastrado no onboarding como destinatário.
+ *
+ * Não bloqueia a criação do agendamento — chamar com .catch() do lado
+ * de quem invoca, igual sendAppointmentConfirmation.
+ */
+export async function sendNewAppointmentToOwner(appointmentId: string) {
+  if (!resend) return { skipped: "resend_not_configured" as const };
+  const ap = await loadAppointment(appointmentId);
+  if (!ap || !ap.store.email) return { skipped: "no_store_email" as const };
+
+  const servicesList = ap.services
+    .map((s) => `<li>${s.service.name}</li>`)
+    .join("");
+  const customerContact = [
+    ap.customer.phone ? `📱 ${ap.customer.phone}` : null,
+    ap.customer.email ? `✉️ ${ap.customer.email}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const html = baseLayout(
+    "Novo agendamento na sua loja",
+    ap.store.name,
+    `<p>Você recebeu um novo agendamento pelo link público:</p>
+     <div style="background:#0B132B;border-radius:8px;padding:16px;margin:16px 0;">
+       <p style="margin:0 0 4px;color:#D4AF37;font-size:12px;">CÓDIGO</p>
+       <p style="margin:0 0 12px;font-size:18px;font-weight:bold;">${ap.code}</p>
+       <p style="margin:0;">📅 ${formatDateBR(ap.startAt)}</p>
+       <p style="margin:4px 0 0;">💈 ${ap.barber.name}</p>
+       <p style="margin:4px 0 0;">👤 <strong>${ap.customer.name}</strong></p>
+       ${customerContact ? `<p style="margin:4px 0 0;font-size:13px;color:#94A3B8;">${customerContact}</p>` : ""}
+       <ul style="margin:8px 0 0;padding-left:18px;">${servicesList}</ul>
+       <p style="margin:12px 0 0;font-weight:bold;color:#D4AF37;">Total: ${formatBRL(ap.total)}</p>
+     </div>
+     <p style="color:#94A3B8;font-size:12px;">Acesse seu painel para gerenciar este e outros agendamentos.</p>`,
+  );
+
+  const res = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: ap.store.email,
+    subject: `Novo agendamento — ${ap.customer.name} · ${ap.code}`,
     html,
   });
   return { sent: true as const, id: res.data?.id };
