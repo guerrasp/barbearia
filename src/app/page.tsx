@@ -192,7 +192,7 @@ export default function LandingPage() {
                 <FeatureCard
                   icon={<Smartphone />}
                   title="Link público"
-                  desc="korta.app/sua-loja — seu cliente agenda em poucos toques, do próprio celular."
+                  desc="Um link só seu — seu cliente agenda em poucos toques, do próprio celular."
                 />
                 <FeatureCard
                   icon={<BellRing />}

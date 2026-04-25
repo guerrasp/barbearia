@@ -136,7 +136,7 @@ export default function ParaBarbeariaPage() {
             />
             <Faq
               q="Como meu cliente agenda?"
-              a="Você ganha um link único (korta.app/sua-loja) para colocar no
+              a="Você ganha um link único e exclusivo da sua loja para colocar no
               Instagram, WhatsApp e Google. O cliente escolhe o serviço, barbeiro e
               horário em poucos toques."
             />

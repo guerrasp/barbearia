@@ -55,6 +55,14 @@ export default function CriarLojaPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // Host dinâmico para preview do link público (resolve no client após mount)
+  const [hostPrefix, setHostPrefix] = useState("seu-site/agendar/");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHostPrefix(`${window.location.host}/agendar/`);
+    }
+  }, []);
+
   // Auto-sugerir slug a partir do nome se o usuário ainda não editou
   useEffect(() => {
     if (!slugTouched) setSlug(slugify(storeName));
@@ -189,7 +197,7 @@ export default function CriarLojaPage() {
                     <Globe className="w-4 h-4" />
                   </span>
                   <div className="flex items-center pl-9 pr-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm">
-                    <span className="text-korta-muted">korta.app/agendar/</span>
+                    <span className="text-korta-muted truncate max-w-[60%]">{hostPrefix}</span>
                     <input
                       type="text"
                       value={slug}
