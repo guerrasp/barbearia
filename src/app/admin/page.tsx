@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import Card from "@/components/ui/Card";
+import ShareStoreLink from "@/components/dashboard/ShareStoreLink";
 import { formatCurrency } from "@/lib/utils";
 import {
   CalendarDays,
@@ -104,6 +105,9 @@ export default function AdminDashboard() {
           Bem-vindo, {user?.name} · {store?.name}
         </p>
       </div>
+
+      {/* Link público — pra compartilhar nas redes */}
+      {store && <ShareStoreLink slug={store.slug} storeName={store.name} />}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

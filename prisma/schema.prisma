@@ -215,7 +215,7 @@ enum AppointmentSource {
 
 model Appointment {
   id              String            @id @default(uuid())
-  code            String            @unique
+  code            String
   customerId      String            @map("customer_id")
   barberId        String            @map("barber_id")
   storeId         String            @map("store_id")
@@ -240,6 +240,7 @@ model Appointment {
   store    Store                @relation(fields: [storeId], references: [id])
   services AppointmentService[]
 
+  @@unique([storeId, code])
   @@index([storeId, startAt])
   @@index([barberId, startAt])
   @@map("appointments")

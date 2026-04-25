@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { maskPhoneBR } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import KortaLogo from "@/components/brand/KortaLogo";
 import Button from "@/components/ui/Button";
 import {
@@ -18,6 +20,8 @@ import {
   CheckCircle2,
   Sparkles,
   Globe,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -38,6 +42,7 @@ function slugify(s: string) {
 }
 
 export default function CriarLojaPage() {
+  const { login } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ slug: string; storeName: string } | null>(null);
@@ -54,6 +59,8 @@ export default function CriarLojaPage() {
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Host dinâmico para preview do link público (resolve no client após mount)
   const [hostPrefix, setHostPrefix] = useState("seu-site/agendar/");
@@ -90,10 +97,12 @@ export default function CriarLojaPage() {
 
   const canStep1 =
     storeName.trim().length >= 2 && slug.length >= 3 && slugCheck?.available === true;
+  const passwordsMatch = password.length > 0 && password === passwordConfirm;
   const canStep2 =
     ownerName.trim().length >= 2 &&
     /\S+@\S+\.\S+/.test(email) &&
-    password.length >= 8;
+    password.length >= 8 &&
+    passwordsMatch;
 
   const submit = async () => {
     setSubmitting(true);
@@ -109,6 +118,15 @@ export default function CriarLojaPage() {
           phone: storePhone || undefined,
         },
       );
+      // Auto-login: já gravou no Supabase, faz login imediato pra evitar
+      // que o usuário tenha que digitar email+senha de novo.
+      try {
+        await login(email.trim(), password);
+      } catch (loginErr) {
+        // Se auto-login falhar (raro), só loga e segue — usuário verá tela
+        // final com "Faça login" e poderá entrar manualmente.
+        console.error("Auto-login pós-onboarding falhou:", loginErr);
+      }
       setDone({ slug: res.store.slug, storeName: res.store.name });
       setStep(3);
     } catch (e) {
@@ -233,8 +251,10 @@ export default function CriarLojaPage() {
                 label="Telefone (opcional)"
                 icon={<Phone className="w-4 h-4" />}
                 value={storePhone}
-                onChange={setStorePhone}
+                onChange={(v) => setStorePhone(maskPhoneBR(v))}
                 placeholder="(00) 00000-0000"
+                maxLength={15}
+                inputMode="tel"
               />
 
               <div className="flex items-center justify-end pt-2">
@@ -266,13 +286,27 @@ export default function CriarLojaPage() {
                 placeholder="seu@email.com"
                 type="email"
               />
-              <Field
+              <PasswordField
                 label="Senha"
-                icon={<Lock className="w-4 h-4" />}
                 value={password}
                 onChange={setPassword}
                 placeholder="Mínimo 8 caracteres"
-                type="password"
+                show={showPassword}
+                onToggleShow={() => setShowPassword((v) => !v)}
+              />
+              <PasswordField
+                label="Confirme a senha"
+                value={passwordConfirm}
+                onChange={setPasswordConfirm}
+                placeholder="Digite a senha novamente"
+                show={showPassword}
+                onToggleShow={() => setShowPassword((v) => !v)}
+                error={
+                  passwordConfirm.length > 0 && password !== passwordConfirm
+                    ? "As senhas não conferem"
+                    : null
+                }
+                ok={passwordsMatch ? "Senhas conferem" : null}
               />
 
               <p className="text-xs text-korta-muted bg-white/5 rounded-lg p-3 border border-white/5">
@@ -333,7 +367,7 @@ export default function CriarLojaPage() {
                 </Link>
               </div>
               <p className="text-xs text-korta-muted mt-4">
-                Faça login com o email e senha que você acabou de cadastrar.
+                Você já está logado e tem 14 dias de avaliação grátis.
               </p>
             </div>
           )}
@@ -392,6 +426,8 @@ function Field({
   onChange,
   placeholder,
   type = "text",
+  maxLength,
+  inputMode,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -399,6 +435,8 @@ function Field({
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  maxLength?: number;
+  inputMode?: "text" | "tel" | "email" | "numeric";
 }) {
   return (
     <div>
@@ -412,9 +450,66 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          maxLength={maxLength}
+          inputMode={inputMode}
           className="w-full pl-9 pr-3 py-2 rounded-lg border border-white/10 bg-white/5 text-korta-text text-sm placeholder:text-korta-muted/50 outline-none focus:border-korta-gold/40"
         />
       </div>
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  show,
+  onToggleShow,
+  error,
+  ok,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  show: boolean;
+  onToggleShow: () => void;
+  error?: string | null;
+  ok?: string | null;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-korta-muted mb-1">{label}</label>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-korta-muted">
+          <Lock className="w-4 h-4" />
+        </span>
+        <input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full pl-9 pr-10 py-2 rounded-lg border border-white/10 bg-white/5 text-korta-text text-sm placeholder:text-korta-muted/50 outline-none focus:border-korta-gold/40"
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          aria-label={show ? "Ocultar senha" : "Mostrar senha"}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-korta-muted hover:text-korta-text transition-colors"
+        >
+          {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+      {error && (
+        <p className="mt-1 text-xs text-red-400">{error}</p>
+      )}
+      {!error && ok && (
+        <p className="mt-1 text-xs text-green-400 flex items-center gap-1">
+          <Check className="w-3 h-3" />
+          {ok}
+        </p>
+      )}
     </div>
   );
 }

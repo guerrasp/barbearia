@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState, useMemo, useCallback } from "react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, maskPhoneBR } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 import {
   Scissors,
@@ -396,9 +396,11 @@ export default function BookingPage({
                     <input
                       type="tel"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(maskPhoneBR(e.target.value))}
                       placeholder="(00) 00000-0000"
                       required
+                      maxLength={15}
+                      inputMode="tel"
                       className="w-full pl-9 pr-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-sm placeholder:text-zinc-500"
                     />
                   </div>
