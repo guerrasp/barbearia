@@ -13,6 +13,7 @@ import {
   CalendarDays,
   CalendarRange,
   Settings,
+  Crown,
   LogOut,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const menuItems = [
   { href: "/admin/servicos", label: "Serviços", icon: Scissors },
   { href: "/admin/barbeiros", label: "Barbeiros", icon: UserCog },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
+  { href: "/admin/configuracoes/plano", label: "Plano", icon: Crown },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 
@@ -65,7 +67,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           {menuItems.map((item) => {
             const isActive =
               pathname === item.href ||
-              (item.href !== "/admin" && pathname.startsWith(item.href));
+              (item.href !== "/admin" &&
+                item.href !== "/admin/configuracoes" &&
+                pathname.startsWith(item.href)) ||
+              (item.href === "/admin/configuracoes" &&
+                pathname === "/admin/configuracoes");
             return (
               <Link
                 key={item.href}

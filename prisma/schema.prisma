@@ -9,6 +9,12 @@ datasource db {
 
 // ==================== MULTI-TENANT ====================
 
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+}
+
 model Store {
   id        String   @id @default(uuid())
   name      String
@@ -19,6 +25,12 @@ model Store {
   logo      String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Billing (Stripe)
+  plan                 Plan      @default(FREE)
+  stripeCustomerId     String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  planRenewsAt         DateTime? @map("plan_renews_at")
 
   users        User[]
   services     Service[]

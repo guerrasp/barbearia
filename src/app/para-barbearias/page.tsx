@@ -47,11 +47,11 @@ const PLANS: Plan[] = [
   },
   {
     name: "Pro",
-    badge: "Em breve",
+    badge: "Mais popular",
     price: "R$ 49",
     priceSuffix: "/mês",
     description: "Para barbearias que cresceram do dono solo para uma equipe.",
-    cta: { label: "Avise-me", href: "/criar-loja" },
+    cta: { label: "Começar com Pro", href: "/criar-loja?plan=PRO" },
     highlight: true,
     icon: <Sparkles className="w-5 h-5" />,
     features: [
@@ -64,11 +64,10 @@ const PLANS: Plan[] = [
   },
   {
     name: "Business",
-    badge: "Em breve",
     price: "R$ 99",
     priceSuffix: "/mês",
     description: "Multi-unidades, time grande e relatórios avançados.",
-    cta: { label: "Avise-me", href: "/criar-loja" },
+    cta: { label: "Falar com vendas", href: "/criar-loja?plan=BUSINESS" },
     icon: <Crown className="w-5 h-5" />,
     features: [
       "Barbeiros ilimitados",
