@@ -60,26 +60,31 @@ export default function LandingPage() {
       <Toaster position="top-right" />
 
       {/* Top bar */}
-      <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-6">
+      <header className="relative z-10 flex items-center justify-between px-4 sm:px-10 py-6 gap-3">
         <KortaLogo size="md" priority />
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <Link
             href="/para-barbearias"
-            className="hidden sm:inline text-sm text-korta-muted hover:text-korta-text transition-colors"
+            className="text-sm text-korta-muted hover:text-korta-text transition-colors px-1 sm:px-2"
           >
             Planos
           </Link>
           <button
             onClick={() => setShowAdminLogin(true)}
-            className="text-sm text-korta-muted hover:text-korta-text transition-colors"
+            className="text-sm text-korta-muted hover:text-korta-text transition-colors px-1 sm:px-2"
           >
-            Entrar
+            <span className="sm:hidden">
+              <Lock className="w-4 h-4" />
+            </span>
+            <span className="hidden sm:inline">Entrar</span>
           </button>
           <Link
             href="/criar-loja"
-            className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-korta-gold text-korta-bg text-sm font-semibold hover:bg-korta-gold-hover transition-colors"
+            className="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-korta-gold text-korta-bg text-xs sm:text-sm font-semibold hover:bg-korta-gold-hover transition-colors whitespace-nowrap"
           >
-            Criar minha loja <ArrowRight className="w-3.5 h-3.5" />
+            <span className="sm:hidden">Criar loja</span>
+            <span className="hidden sm:inline">Criar minha loja</span>
+            <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </Link>
         </div>
       </header>

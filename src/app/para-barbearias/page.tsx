@@ -193,7 +193,7 @@ function PlanCard({ plan }: { plan: Plan }) {
     <div
       className={`relative rounded-2xl p-6 border transition-all ${
         plan.highlight
-          ? "bg-korta-surface border-korta-gold/40 shadow-2xl shadow-korta-gold/10 scale-[1.02]"
+          ? "bg-korta-surface border-korta-gold/40 shadow-2xl shadow-korta-gold/10 md:scale-[1.02]"
           : "bg-korta-surface/70 border-white/5"
       }`}
     >
