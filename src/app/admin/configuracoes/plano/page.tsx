@@ -34,7 +34,7 @@ interface PlanInfo {
   usage: { barbers: number };
   limits: {
     maxBarbers: number | null;
-    smsReminders: boolean;
+    whatsappReminders: boolean;
     multiUnit: boolean;
     advancedReports: boolean;
   };
@@ -61,7 +61,7 @@ const PLAN_BENEFITS: Record<Plan, string[]> = {
   ],
   PRO: [
     "Até 5 barbeiros",
-    "Lembretes por SMS",
+    "Lembretes por WhatsApp",
     "Suporte prioritário",
     "Tudo do Pioneiro",
   ],

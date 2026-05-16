@@ -12,7 +12,7 @@ import type { Plan } from "@/generated/prisma/client";
  */
 export interface PlanLimits {
   maxBarbers: number;
-  smsReminders: boolean;
+  whatsappReminders: boolean;
   multiUnit: boolean;
   advancedReports: boolean;
 }
@@ -20,19 +20,19 @@ export interface PlanLimits {
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   FREE: {
     maxBarbers: 2,
-    smsReminders: false,
+    whatsappReminders: false,
     multiUnit: false,
     advancedReports: false,
   },
   PRO: {
     maxBarbers: 5,
-    smsReminders: true,
+    whatsappReminders: true,
     multiUnit: false,
     advancedReports: false,
   },
   BUSINESS: {
     maxBarbers: Infinity,
-    smsReminders: true,
+    whatsappReminders: true,
     multiUnit: true,
     advancedReports: true,
   },

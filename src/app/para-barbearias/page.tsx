@@ -56,7 +56,7 @@ const PLANS: Plan[] = [
     icon: <Sparkles className="w-5 h-5" />,
     features: [
       "Até 5 barbeiros",
-      "Lembretes por SMS / WhatsApp",
+      "Lembretes automáticos por WhatsApp",
       "Comissão automática por barbeiro",
       "Múltiplos serviços por horário",
       "Suporte prioritário",

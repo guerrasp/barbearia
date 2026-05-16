@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendAppointmentReminder } from "@/lib/notifications";
+import { sendWhatsAppReminder } from "@/lib/whatsapp";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/cron/reminders — envia lembretes para agendamentos ~24h à frente
@@ -35,15 +36,17 @@ export async function GET(req: NextRequest) {
     select: { id: true },
   });
 
-  const results: Array<{ id: string; result: unknown; error?: string }> = [];
+  const results: Array<{ id: string; result: unknown; whatsappResult?: unknown; error?: string }> = [];
   for (const ap of due) {
     try {
+      // Send email and WhatsApp reminders
       const result = await sendAppointmentReminder(ap.id);
+      const whatsappResult = await sendWhatsAppReminder(ap.id);
       await prisma.appointment.update({
         where: { id: ap.id },
         data: { notifiedReminder: true },
       });
-      results.push({ id: ap.id, result });
+      results.push({ id: ap.id, result, whatsappResult });
     } catch (error) {
       results.push({
         id: ap.id,

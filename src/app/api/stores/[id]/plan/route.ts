@@ -51,7 +51,7 @@ export async function GET(
     usage: { barbers: store._count.barbers },
     limits: {
       maxBarbers: Number.isFinite(limits.maxBarbers) ? limits.maxBarbers : null,
-      smsReminders: limits.smsReminders,
+      whatsappReminders: limits.whatsappReminders,
       multiUnit: limits.multiUnit,
       advancedReports: limits.advancedReports,
     },

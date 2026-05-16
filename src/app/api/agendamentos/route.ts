@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { checkAvailability, generateAppointmentCode } from "@/lib/scheduling";
 import { sendAppointmentConfirmation } from "@/lib/notifications";
+import { sendWhatsAppConfirmation } from "@/lib/whatsapp";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUserForStore } from "@/lib/auth-server";
@@ -138,8 +139,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Send email and WhatsApp confirmations asynchronously
     sendAppointmentConfirmation(appointment.id).catch((e) =>
-      console.error("Falha ao enviar confirmação:", e),
+      console.error("Falha ao enviar confirmação por email:", e),
+    );
+    sendWhatsAppConfirmation(appointment.id).catch((e) =>
+      console.error("Falha ao enviar confirmação por WhatsApp:", e),
     );
 
     return NextResponse.json(appointment, { status: 201 });
