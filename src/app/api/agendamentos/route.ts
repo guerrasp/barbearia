@@ -99,58 +99,60 @@ export async function POST(req: NextRequest) {
     }
     const endAt = new Date(startAt.getTime() + totalDuration * 60_000);
 
-    // Validação de disponibilidade
-    const issue = await checkAvailability({
-      barberId: data.barberId,
-      startAt,
-      endAt,
-    });
-    if (issue) {
-      return NextResponse.json({ error: issue.message, issue }, { status: 409 });
-    }
-
-    const code = await generateAppointmentCode(data.storeId, startAt);
-
-    const appointment = await prisma.appointment.create({
-      data: {
-        code,
-        storeId: data.storeId,
-        customerId: data.customerId,
+    const appointment = await prisma.$transaction(async (tx) => {
+      const issue = await checkAvailability({
         barberId: data.barberId,
         startAt,
         endAt,
-        status: "SCHEDULED",
-        source: data.source,
-        total,
-        discount: data.discount,
-        notes: data.notes || null,
-        services: {
-          create: services.map((sv) => ({
-            serviceId: sv.id,
-            price: sv.price,
-            durationMinutes: sv.durationMinutes,
-          })),
-        },
-      },
-      include: {
-        customer: true,
-        barber: { select: { id: true, name: true } },
-        services: { include: { service: { select: { id: true, name: true } } } },
-      },
-    });
+        tx,
+      });
+      if (issue) throw Object.assign(new Error(issue.message), { issue, status: 409 });
 
-    // Send email and WhatsApp confirmations asynchronously
-    sendAppointmentConfirmation(appointment.id).catch((e) =>
-      console.error("Falha ao enviar confirmação por email:", e),
-    );
-    sendWhatsAppConfirmation(appointment.id).catch((e) =>
-      console.error("Falha ao enviar confirmação por WhatsApp:", e),
-    );
+      const code = await generateAppointmentCode(data.storeId, startAt, tx);
+
+      return tx.appointment.create({
+        data: {
+          code,
+          storeId: data.storeId,
+          customerId: data.customerId,
+          barberId: data.barberId,
+          startAt,
+          endAt,
+          status: "SCHEDULED",
+          source: data.source,
+          total,
+          discount: data.discount,
+          notes: data.notes || null,
+          services: {
+            create: services.map((sv) => ({
+              serviceId: sv.id,
+              price: sv.price,
+              durationMinutes: sv.durationMinutes,
+            })),
+          },
+        },
+        include: {
+          customer: true,
+          barber: { select: { id: true, name: true } },
+          services: { include: { service: { select: { id: true, name: true } } } },
+        },
+      });
+    }, { isolationLevel: "Serializable" });
+
+    // Envia confirmações antes de retornar (aguarda para não perder no serverless)
+    await Promise.allSettled([
+      sendAppointmentConfirmation(appointment.id),
+      sendWhatsAppConfirmation(appointment.id),
+    ]);
 
     return NextResponse.json(appointment, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
+    }
+    const err = error as Error & { issue?: unknown; status?: number };
+    if (err.status === 409) {
+      return NextResponse.json({ error: err.message, issue: err.issue }, { status: 409 });
     }
     console.error("Erro ao criar agendamento:", error);
     return NextResponse.json({ error: "Erro ao criar agendamento" }, { status: 500 });

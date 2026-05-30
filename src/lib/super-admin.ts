@@ -22,8 +22,3 @@ export function isSuperAdmin(email: string | null | undefined): boolean {
   return list.includes(email.toLowerCase());
 }
 
-export function requireSuperAdmin(req: Request): { ok: true; email: string } | { ok: false } {
-  const email = req.headers.get("x-user-email");
-  if (!email || !isSuperAdmin(email)) return { ok: false };
-  return { ok: true, email };
-}

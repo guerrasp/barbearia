@@ -1,36 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { RESERVED_SLUGS, normalizeSlug } from "@/lib/slugs";
 
 export const dynamic = "force-dynamic";
-
-const RESERVED = new Set([
-  "admin",
-  "api",
-  "agendar",
-  "cadastro",
-  "criar-loja",
-  "login",
-  "app",
-  "korta",
-  "static",
-  "_next",
-  "public",
-  "sobre",
-  "para-barbearias",
-  "termos",
-  "privacidade",
-  "contato",
-]);
-
-function normalize(raw: string) {
-  return raw
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("slug")?.trim() ?? "";
@@ -38,7 +10,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ available: false, reason: "empty" }, { status: 200 });
   }
 
-  const slug = normalize(raw);
+  const slug = normalizeSlug(raw);
 
   if (slug.length < 3) {
     return NextResponse.json({ available: false, slug, reason: "too_short" });
@@ -46,7 +18,7 @@ export async function GET(req: NextRequest) {
   if (slug.length > 40) {
     return NextResponse.json({ available: false, slug, reason: "too_long" });
   }
-  if (RESERVED.has(slug)) {
+  if (RESERVED_SLUGS.has(slug)) {
     return NextResponse.json({ available: false, slug, reason: "reserved" });
   }
 

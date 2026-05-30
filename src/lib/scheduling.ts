@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@/generated/prisma/client";
+
+type TxClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
 /**
  * Helpers de agendamento:
@@ -33,6 +36,8 @@ export interface CheckAvailabilityInput {
   endAt: Date;
   /** Se estiver editando um agendamento, ignorar conflito com ele mesmo */
   excludeAppointmentId?: string;
+  /** Prisma client transacional — usa o global se omitido */
+  tx?: TxClient;
 }
 
 /**
@@ -42,7 +47,8 @@ export interface CheckAvailabilityInput {
 export async function checkAvailability(
   input: CheckAvailabilityInput,
 ): Promise<AvailabilityIssue | null> {
-  const { barberId, startAt, endAt, excludeAppointmentId } = input;
+  const { barberId, startAt, endAt, excludeAppointmentId, tx } = input;
+  const db = tx ?? prisma;
 
   if (endAt <= startAt) {
     return { kind: "outside_working_hours", message: "Intervalo inválido" };
@@ -65,7 +71,7 @@ export async function checkAvailability(
   }
 
   // 1. Working hours
-  const workingHours = await prisma.workingHours.findMany({
+  const workingHours = await db.workingHours.findMany({
     where: { barberId, weekday },
   });
 
@@ -90,7 +96,7 @@ export async function checkAvailability(
   }
 
   // 2. Time blocks (bloqueios pontuais) — overlap
-  const overlappingBlock = await prisma.timeBlock.findFirst({
+  const overlappingBlock = await db.timeBlock.findFirst({
     where: {
       barberId,
       startAt: { lt: endAt },
@@ -108,7 +114,7 @@ export async function checkAvailability(
   }
 
   // 3. Outros agendamentos ativos
-  const conflicting = await prisma.appointment.findFirst({
+  const conflicting = await db.appointment.findFirst({
     where: {
       barberId,
       id: excludeAppointmentId ? { not: excludeAppointmentId } : undefined,
@@ -142,7 +148,7 @@ export async function getAvailableSlots(params: {
   durationMinutes: number;
   stepMinutes?: number;
 }): Promise<string[]> {
-  const { barberId, date, durationMinutes, stepMinutes = 15 } = params;
+  const { barberId, date, durationMinutes, stepMinutes = 30 } = params;
 
   const y = date.getFullYear();
   const m = date.getMonth();
@@ -218,13 +224,14 @@ export async function getAvailableSlots(params: {
 /**
  * Gera um código único sequencial para o agendamento: AG-YYYYMMDD-XXX
  */
-export async function generateAppointmentCode(storeId: string, at: Date): Promise<string> {
+export async function generateAppointmentCode(storeId: string, at: Date, tx?: TxClient): Promise<string> {
+  const db = tx ?? prisma;
   const y = at.getFullYear();
   const m = (at.getMonth() + 1).toString().padStart(2, "0");
   const d = at.getDate().toString().padStart(2, "0");
   const prefix = `AG-${y}${m}${d}`;
 
-  const count = await prisma.appointment.count({
+  const count = await db.appointment.count({
     where: {
       storeId,
       code: { startsWith: prefix },

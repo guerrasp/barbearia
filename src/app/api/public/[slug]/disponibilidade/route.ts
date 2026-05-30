@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getAvailableSlots } from "@/lib/scheduling";
+import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/public/[slug]/disponibilidade?barberId=&date=YYYY-MM-DD&serviceIds=
@@ -8,6 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+
+  const limited = rateLimit(req, { limit: 30, windowMs: 60_000, prefix: "pub-dispo" });
+  if (limited) return limited;
+
   const { searchParams } = new URL(req.url);
   const barberId = searchParams.get("barberId");
   const dateStr = searchParams.get("date");
@@ -53,7 +58,7 @@ export async function GET(
     barberId,
     date: new Date(y, m - 1, d),
     durationMinutes,
-    stepMinutes: 15,
+    stepMinutes: 30,
   });
 
   return NextResponse.json({ date: dateStr, durationMinutes, slots });

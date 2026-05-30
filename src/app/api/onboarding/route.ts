@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { RESERVED_SLUGS } from "@/lib/slugs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { computeTrialDeadline } from "@/lib/trial";
-
-const RESERVED = new Set([
-  "admin",
-  "api",
-  "agendar",
-  "cadastro",
-  "criar-loja",
-  "login",
-  "app",
-  "korta",
-  "static",
-  "_next",
-  "public",
-  "sobre",
-  "para-barbearias",
-  "termos",
-  "privacidade",
-  "contato",
-]);
 
 const onboardingSchema = z.object({
   storeName: z.string().min(2).max(60),
@@ -30,7 +12,7 @@ const onboardingSchema = z.object({
     .min(3)
     .max(40)
     .regex(/^[a-z0-9-]+$/, "slug inválido")
-    .refine((s) => !RESERVED.has(s), "slug reservado"),
+    .refine((s) => !RESERVED_SLUGS.has(s), "slug reservado"),
   ownerName: z.string().min(2).max(80),
   email: z.string().email(),
   password: z.string().min(8),

@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { checkAvailability, generateAppointmentCode } from "@/lib/scheduling";
 import { sendAppointmentConfirmation, sendNewAppointmentToOwner } from "@/lib/notifications";
+import { sendWhatsAppConfirmation } from "@/lib/whatsapp";
 import { getTrialStatus } from "@/lib/trial";
+import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -23,6 +25,10 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+
+  const limited = rateLimit(req, { limit: 10, windowMs: 60_000, prefix: "pub-agendar" });
+  if (limited) return limited;
+
   try {
     const body = await req.json();
     const data = schema.parse(body);
@@ -79,76 +85,75 @@ export async function POST(
     if (isNaN(startAt.getTime())) {
       return NextResponse.json({ error: "Data inválida" }, { status: 400 });
     }
+    if (startAt.getTime() < Date.now()) {
+      return NextResponse.json({ error: "Não é possível agendar no passado" }, { status: 400 });
+    }
     const endAt = new Date(startAt.getTime() + totalDuration * 60_000);
 
-    const issue = await checkAvailability({ barberId: data.barberId, startAt, endAt });
-    if (issue) {
-      return NextResponse.json({ error: issue.message, issue }, { status: 409 });
-    }
+    const appointment = await prisma.$transaction(async (tx) => {
+      const issue = await checkAvailability({ barberId: data.barberId, startAt, endAt, tx });
+      if (issue) throw Object.assign(new Error(issue.message), { issue, status: 409 });
 
-    // Upsert customer por (storeId, phone) — se já existir, reutiliza
-    const phoneDigits = data.customer.phone.replace(/\D/g, "");
-    let customer = await prisma.customer.findFirst({
-      where: { storeId: store.id, phone: phoneDigits },
-    });
-    if (!customer) {
-      customer = await prisma.customer.create({
+      // Upsert customer por (storeId, phone) — se já existir, reutiliza
+      const phoneDigits = data.customer.phone.replace(/\D/g, "");
+      let customer = await tx.customer.findFirst({
+        where: { storeId: store.id, phone: phoneDigits },
+      });
+      if (!customer) {
+        customer = await tx.customer.create({
+          data: {
+            storeId: store.id,
+            name: data.customer.name,
+            phone: phoneDigits,
+            email: data.customer.email || null,
+          },
+        });
+      } else if (customer.name !== data.customer.name || (!customer.email && data.customer.email)) {
+        customer = await tx.customer.update({
+          where: { id: customer.id },
+          data: {
+            name: data.customer.name,
+            email: customer.email || data.customer.email || null,
+          },
+        });
+      }
+
+      const code = await generateAppointmentCode(store.id, startAt, tx);
+
+      return tx.appointment.create({
         data: {
+          code,
           storeId: store.id,
-          name: data.customer.name,
-          phone: phoneDigits,
-          email: data.customer.email || null,
+          customerId: customer.id,
+          barberId: data.barberId,
+          startAt,
+          endAt,
+          status: "SCHEDULED",
+          source: "PUBLIC",
+          total: subtotal,
+          discount: 0,
+          notes: data.notes || null,
+          services: {
+            create: services.map((sv) => ({
+              serviceId: sv.id,
+              price: sv.price,
+              durationMinutes: sv.durationMinutes,
+            })),
+          },
+        },
+        include: {
+          barber: { select: { name: true } },
+          services: { include: { service: { select: { name: true } } } },
         },
       });
-    } else if (customer.name !== data.customer.name || (!customer.email && data.customer.email)) {
-      // Atualiza dados se mudou nome ou email vazio
-      customer = await prisma.customer.update({
-        where: { id: customer.id },
-        data: {
-          name: data.customer.name,
-          email: customer.email || data.customer.email || null,
-        },
-      });
-    }
+    }, { isolationLevel: "Serializable" });
 
-    const code = await generateAppointmentCode(store.id, startAt);
-
-    const appointment = await prisma.appointment.create({
-      data: {
-        code,
-        storeId: store.id,
-        customerId: customer.id,
-        barberId: data.barberId,
-        startAt,
-        endAt,
-        status: "SCHEDULED",
-        source: "PUBLIC",
-        total: subtotal,
-        discount: 0,
-        notes: data.notes || null,
-        services: {
-          create: services.map((sv) => ({
-            serviceId: sv.id,
-            price: sv.price,
-            durationMinutes: sv.durationMinutes,
-          })),
-        },
-      },
-      include: {
-        barber: { select: { name: true } },
-        services: { include: { service: { select: { name: true } } } },
-      },
-    });
-
-    // Dispara emails (não bloqueiam resposta):
-    // - confirmação para o cliente
-    // - notificação para o dono da loja
-    sendAppointmentConfirmation(appointment.id).catch((e) =>
-      console.error("Falha ao enviar confirmação ao cliente:", e),
-    );
-    sendNewAppointmentToOwner(appointment.id).catch((e) =>
-      console.error("Falha ao notificar dono da loja:", e),
-    );
+    // Envia notificações antes de retornar (aguarda para não perder no serverless)
+    await Promise.allSettled([
+      sendAppointmentConfirmation(appointment.id),
+      sendNewAppointmentToOwner(appointment.id),
+      sendWhatsAppConfirmation(appointment.id),
+    ]);
 
     return NextResponse.json(
       {
@@ -166,6 +171,10 @@ export async function POST(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
+    }
+    const err = error as Error & { issue?: unknown; status?: number };
+    if (err.status === 409) {
+      return NextResponse.json({ error: err.message, issue: err.issue }, { status: 409 });
     }
     console.error("Erro ao criar agendamento público:", error);
     return NextResponse.json({ error: "Erro ao criar agendamento" }, { status: 500 });

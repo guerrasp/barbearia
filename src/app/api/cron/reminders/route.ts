@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
   }
   const provided =
     req.headers.get("x-cron-secret") ||
-    new URL(req.url).searchParams.get("secret") ||
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (provided !== secret) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
