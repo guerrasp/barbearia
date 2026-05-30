@@ -3,6 +3,14 @@ import type { PrismaClient } from "@/generated/prisma/client";
 
 type TxClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
+// Fuso padrão do negócio. Todas as barbearias operam no horário de Brasília.
+const BIZ_TZ = "America/Sao_Paulo";
+
+function nowInBizTz(): Date {
+  const s = new Date().toLocaleString("sv-SE", { timeZone: BIZ_TZ });
+  return new Date(s.replace(" ", "T"));
+}
+
 /**
  * Helpers de agendamento:
  * - conflito com outros Appointments
@@ -200,7 +208,7 @@ export async function getAvailableSlots(params: {
   }
 
   const slots: string[] = [];
-  const now = new Date();
+  const now = nowInBizTz();
   const isToday =
     now.getFullYear() === y && now.getMonth() === m && now.getDate() === d;
   const nowMin = now.getHours() * 60 + now.getMinutes();

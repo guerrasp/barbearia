@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const search = searchParams.get("search") || "";
+  const page = searchParams.get("page");
+  const pageSize = Math.min(Number(searchParams.get("pageSize")) || 50, 200);
 
   if (!storeId) {
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
@@ -54,16 +56,41 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  const includeRelations = {
+    customer: { select: { id: true, name: true, phone: true, email: true } },
+    barber: { select: { id: true, name: true } },
+    services: {
+      include: { service: { select: { id: true, name: true } } },
+    },
+  };
+
+  if (page) {
+    const pageNum = Math.max(1, Number(page));
+    const skip = (pageNum - 1) * pageSize;
+    const [appointments, total] = await Promise.all([
+      prisma.appointment.findMany({
+        where,
+        include: includeRelations,
+        orderBy: { startAt: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      prisma.appointment.count({ where }),
+    ]);
+    return NextResponse.json({
+      data: appointments,
+      total,
+      page: pageNum,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
+  }
+
   const appointments = await prisma.appointment.findMany({
     where,
-    include: {
-      customer: { select: { id: true, name: true, phone: true, email: true } },
-      barber: { select: { id: true, name: true } },
-      services: {
-        include: { service: { select: { id: true, name: true } } },
-      },
-    },
+    include: includeRelations,
     orderBy: { startAt: "desc" },
+    take: 500,
   });
 
   return NextResponse.json(appointments);

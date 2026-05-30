@@ -4,7 +4,7 @@ const BASE_URL = "/api";
 function readAccessToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem("bella_session");
+    const raw = localStorage.getItem("korta_session");
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return typeof parsed?.access_token === "string" ? parsed.access_token : null;

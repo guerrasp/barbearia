@@ -46,8 +46,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const USER_KEY = "bella_user";
-const SESSION_KEY = "bella_session";
+const USER_KEY = "korta_user";
+const SESSION_KEY = "korta_session";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
