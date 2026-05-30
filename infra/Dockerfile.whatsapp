@@ -1,0 +1,15 @@
+FROM node:20-alpine
+RUN apk add --no-cache git
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY whatsapp-server.js .
+
+VOLUME ["/app/auth"]
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://localhost:8080/healthz || exit 1
+
+CMD ["node", "whatsapp-server.js"]

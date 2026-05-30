@@ -183,11 +183,17 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
+  // GET /healthz — health check sem auth (Docker HEALTHCHECK / load balancer)
+  const rawParts = parseUrl(req.url);
+  if (req.method === "GET" && rawParts.length === 1 && rawParts[0] === "healthz") {
+    return json(res, 200, { ok: true });
+  }
+
   if (!checkAuth(req, res)) return;
 
-  const parts = parseUrl(req.url);
+  const parts = rawParts;
 
-  // GET /status — health check
+  // GET /status — health check autenticado com detalhes
   if (req.method === "GET" && parts.length === 1 && parts[0] === "status") {
     const active = Object.entries(sessions)
       .filter(([, s]) => s.connected)
