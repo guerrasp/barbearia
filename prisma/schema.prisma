@@ -264,3 +264,21 @@ model AppointmentService {
 
   @@map("appointment_services")
 }
+
+// ==================== CHATBOT ====================
+
+enum ChatbotDirection {
+  CUSTOMER_MSG
+  BOT_REPLY
+}
+
+model ChatbotMessage {
+  id        String            @id @default(uuid())
+  storeId   String            @map("store_id")
+  phone     String
+  direction ChatbotDirection
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  @@index([storeId, createdAt])
+  @@map("chatbot_messages")
+}

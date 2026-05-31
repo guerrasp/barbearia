@@ -26,6 +26,7 @@ const QRCode = require("qrcode");
 const AUTH_BASE = "/app/auth";
 const API_KEY = process.env.WHATSAPP_API_KEY;
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || "";
+const CHATBOT_WEBHOOK = process.env.CHATBOT_WEBHOOK_URL || ""; // ex: https://korta.com/api/chatbot/incoming
 
 if (!API_KEY) {
   console.error("FATAL: WHATSAPP_API_KEY é obrigatória. Defina no ambiente.");
@@ -112,6 +113,40 @@ async function startSession(storeId) {
       const me = sock.user;
       session.phone = me?.id?.split(":")[0] || me?.id?.split("@")[0] || null;
       console.log(`[${storeId}] Conectado! Telefone: ${session.phone}`);
+    }
+  });
+
+  // ── Listener de mensagens recebidas (chatbot) ──────────
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    if (type !== "notify") return;
+
+    for (const msg of messages) {
+      // Ignora mensagens enviadas pelo próprio bot, status e grupos
+      if (msg.key.fromMe) continue;
+      if (!msg.message) continue;
+      if (msg.key.remoteJid?.endsWith("@g.us")) continue; // grupo
+
+      const phone = msg.key.remoteJid?.replace("@s.whatsapp.net", "") || "";
+      const text =
+        msg.message.conversation ||
+        msg.message.extendedTextMessage?.text ||
+        "";
+
+      if (!text.trim() || !phone) continue;
+
+      console.log(`[${storeId}] Msg recebida de ${phone}: ${text.substring(0, 80)}`);
+
+      // Encaminha para o webhook do Next.js (fire-and-forget)
+      if (CHATBOT_WEBHOOK) {
+        fetch(CHATBOT_WEBHOOK, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": API_KEY,
+          },
+          body: JSON.stringify({ storeId, phone, text: text.trim(), messageId: msg.key.id }),
+        }).catch((e) => console.error(`[${storeId}] Webhook erro:`, e.message));
+      }
     }
   });
 }
