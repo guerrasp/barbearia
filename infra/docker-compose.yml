@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  whatsapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.whatsapp
+    container_name: korta-whatsapp
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persiste as sessões do WhatsApp entre restarts/redeploys
+      - whatsapp-auth:/app/auth
+    environment:
+      # OBRIGATÓRIO: chave de API (mesma configurada na Vercel)
+      - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
+      # OBRIGATÓRIO: URL do Next.js para o chatbot processar mensagens
+      - CHATBOT_WEBHOOK_URL=${CHATBOT_WEBHOOK_URL}
+      # OBRIGATÓRIO: domínio do site para CORS
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      # Porta (padrão 8080)
+      - PORT=8080
+
+volumes:
+  whatsapp-auth:
+    name: korta-whatsapp-auth
