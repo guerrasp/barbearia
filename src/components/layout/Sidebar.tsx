@@ -15,6 +15,7 @@ import {
   Settings,
   Crown,
   Palette,
+  Repeat,
   LogOut,
   X,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const menuItems: MenuItem[] = [
   { href: "/admin/servicos", label: "Serviços", icon: Scissors, roles: ["ADMIN"] },
   { href: "/admin/barbeiros", label: "Barbeiros", icon: UserCog, roles: ["ADMIN"] },
   { href: "/admin/clientes", label: "Clientes", icon: Users, roles: ["ADMIN"] },
+  { href: "/admin/assinaturas", label: "Clube", icon: Repeat, roles: ["ADMIN"] },
   { href: "/admin/meu-perfil", label: "Meu Perfil", icon: UserCog, roles: ["BARBER"] },
   { href: "/admin/configuracoes/plano", label: "Plano", icon: Crown, roles: ["ADMIN"] },
   { href: "/admin/configuracoes/personalizacao", label: "Personalização", icon: Palette, roles: ["ADMIN"] },
