@@ -18,6 +18,10 @@ import {
   TrendingUp,
   Scissors,
   Check,
+  Bot,
+  Users,
+  Heart,
+  BarChart3,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -201,14 +205,92 @@ export default function LandingPage() {
                 />
                 <FeatureCard
                   icon={<BellRing />}
-                  title="Lembretes automáticos"
-                  desc="Email de confirmação na hora e lembrete 24h antes. Menos no-show, mais faturamento."
+                  title="WhatsApp automático"
+                  desc="Confirmação na hora e lembrete 24h antes por WhatsApp e email. Em todos os planos."
                 />
                 <FeatureCard
-                  icon={<TrendingUp />}
-                  title="Painel + relatórios"
-                  desc="Acompanhe comissões, serviços mais vendidos e clientes recorrentes."
+                  icon={<Users />}
+                  title="Portal do barbeiro"
+                  desc="Cada barbeiro tem seu login — vê a própria agenda e perfil, sem acessar dados da loja."
                 />
+              </div>
+            </section>
+
+            {/* Diferenciais */}
+            <section className="py-16 border-t border-white/5">
+              <h2 className="text-3xl sm:text-4xl font-bold text-korta-text text-center">
+                O que só o Korta{" "}
+                <span className="text-korta-gold">te entrega</span>
+              </h2>
+              <p className="text-center text-korta-muted mt-3 max-w-xl mx-auto">
+                Ferramentas que nenhum outro sistema de barbearia tem.
+              </p>
+
+              <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="bg-korta-surface/50 rounded-xl p-6 border border-korta-gold/15">
+                  <div className="w-12 h-12 rounded-xl bg-korta-gold/10 border border-korta-gold/20 flex items-center justify-center text-korta-gold mb-4">
+                    <Bot className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-korta-text font-bold text-lg">Atendente virtual IA</h3>
+                  <p className="text-sm text-korta-muted mt-2 leading-relaxed">
+                    Seu cliente manda mensagem no WhatsApp e a IA agenda sozinha — 24h por dia, 7 dias por semana. Sem perder cliente fora do horário.
+                  </p>
+                  <span className="inline-block mt-3 text-xs text-korta-gold font-medium px-2 py-0.5 rounded-full bg-korta-gold/10 border border-korta-gold/20">
+                    Plano Business e Korta IA
+                  </span>
+                </div>
+
+                <div className="bg-korta-surface/50 rounded-xl p-6 border border-white/5 hover:border-korta-gold/20 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-korta-gold/10 border border-korta-gold/20 flex items-center justify-center text-korta-gold mb-4">
+                    <Heart className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-korta-text font-bold text-lg">CRM inteligente</h3>
+                  <p className="text-sm text-korta-muted mt-2 leading-relaxed">
+                    Saiba quem sumiu, quem faz aniversário e quem é VIP. Veja ticket médio, barbeiro preferido e frequência — tudo automático.
+                  </p>
+                  <span className="inline-block mt-3 text-xs text-korta-muted font-medium px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                    Todos os planos
+                  </span>
+                </div>
+
+                <div className="bg-korta-surface/50 rounded-xl p-6 border border-white/5 hover:border-korta-gold/20 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-korta-gold/10 border border-korta-gold/20 flex items-center justify-center text-korta-gold mb-4">
+                    <BarChart3 className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-korta-text font-bold text-lg">Dashboard completa</h3>
+                  <p className="text-sm text-korta-muted mt-2 leading-relaxed">
+                    Faturamento por barbeiro, horários de pico, taxa de ocupação e comparativo mensal. Dados que a concorrência cobra R$ 179+ para mostrar.
+                  </p>
+                  <span className="inline-block mt-3 text-xs text-korta-muted font-medium px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                    Todos os planos
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Preço */}
+            <section className="py-16 border-t border-white/5 text-center">
+              <h2 className="text-3xl font-bold text-korta-text">
+                A partir de <span className="text-korta-gold">R$ 39,90</span>/mês
+              </h2>
+              <p className="text-korta-muted mt-3 max-w-lg mx-auto">
+                WhatsApp, CRM e dashboard já inclusos no plano mais barato do mercado.
+              </p>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                <Link href="/criar-loja">
+                  <Button
+                    className="!bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
+                    size="lg"
+                  >
+                    Começar trial grátis <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+                <Link
+                  href="/para-barbearias"
+                  className="inline-flex items-center justify-center px-6 py-3 rounded-lg border border-white/10 text-korta-text hover:border-white/20 transition-colors text-sm font-medium"
+                >
+                  Ver todos os planos
+                </Link>
               </div>
             </section>
 

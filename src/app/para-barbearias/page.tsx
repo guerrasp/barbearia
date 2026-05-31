@@ -138,6 +138,47 @@ export default function ParaBarbeariaPage() {
           ))}
         </section>
 
+        {/* Por que Korta */}
+        <section className="mt-20">
+          <h2 className="text-2xl sm:text-3xl font-bold text-korta-text text-center">
+            Por que o Korta é <span className="text-korta-gold">diferente</span>
+          </h2>
+          <p className="text-center text-korta-muted mt-3 max-w-2xl mx-auto">
+            Comparamos com os principais sistemas do mercado.
+          </p>
+          <div className="mt-8 overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="py-3 text-left text-korta-muted font-medium">Recurso</th>
+                  <th className="py-3 text-center text-korta-gold font-bold">Korta</th>
+                  <th className="py-3 text-center text-korta-muted font-medium">Concorrência</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-korta-text">
+                {[
+                  ["WhatsApp em todos os planos", true, "Geralmente add-on ou planos caros"],
+                  ["CRM com clientes inativos", true, "Nenhum oferece integrado"],
+                  ["Aniversariantes automático", true, "Nenhum oferece"],
+                  ["Dashboard com faturamento por barbeiro", true, "Só em planos de R$ 179+"],
+                  ["Horários de pico + ocupação", true, "Raro, geralmente manual"],
+                  ["Atendente virtual IA", true, "Apenas menus numerados"],
+                  ["Portal exclusivo do barbeiro", true, "Poucos oferecem"],
+                  ["A partir de R$ 39,90/mês", true, "Média do mercado: R$ 89+"],
+                ].map(([feature, korta, others]) => (
+                  <tr key={feature as string}>
+                    <td className="py-3">{feature as string}</td>
+                    <td className="py-3 text-center">
+                      {korta ? <Check className="w-5 h-5 text-korta-gold mx-auto" /> : <span className="text-korta-muted">—</span>}
+                    </td>
+                    <td className="py-3 text-center text-korta-muted text-xs">{others as string}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         {/* FAQ curto */}
         <section className="mt-20">
           <h2 className="text-2xl sm:text-3xl font-bold text-korta-text text-center">
@@ -161,9 +202,12 @@ export default function ParaBarbeariaPage() {
               perder histórico nem precisar refazer agenda."
             />
             <Faq
+              q="O que é o Atendente Virtual IA?"
+              a="É como ter um recepcionista 24h no WhatsApp da sua loja. O cliente manda mensagem, a IA entende o que ele quer, sugere horários e agenda automaticamente. Disponível no Business (50 msg/mês) e ilimitado no Korta IA."
+            />
+            <Faq
               q="E se eu tiver mais de uma unidade?"
-              a="O plano Business vai cobrir multi-unidades. Enquanto isso você pode
-              criar uma loja por unidade e nos avisar — vamos ajudar a unificar."
+              a="O plano Business e Korta IA suportam multi-unidades. Gerencie todas as lojas em um único painel."
             />
           </div>
         </section>
