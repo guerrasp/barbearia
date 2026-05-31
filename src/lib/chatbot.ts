@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAvailableSlots, checkAvailability, generateAppointmentCode } from "@/lib/scheduling";
 import { limitsFor } from "@/lib/plan-limits";
+import { parseIntent, isAiEnabled, generateReply, type AiParsedIntent } from "@/lib/ai-chatbot";
 
 /**
  * Chatbot WhatsApp — state machine por conversa.
@@ -143,13 +144,20 @@ export async function handleIncomingMessage(
     return { reply: "", aiMessageCounted: false }; // silencioso — plano não tem chatbot
   }
 
-  // Reset: se digitar "menu", "oi", "olá", "início" → volta ao menu
+  // Reset: se digitar "menu", "voltar", "0" → volta ao menu
   const lower = text.toLowerCase().trim();
-  if (["menu", "oi", "olá", "ola", "inicio", "início", "voltar", "0"].includes(lower)) {
+  if (["menu", "voltar", "0"].includes(lower)) {
     clearState(storeId, phone);
   }
 
   const state = getState(storeId, phone);
+
+  // ── Modo IA: tenta resolver com linguagem natural ──
+  if (isAiEnabled() && state.step === "menu") {
+    const aiResult = await handleAiMessage(store, state, text);
+    if (aiResult) return aiResult;
+    // Se IA não conseguiu resolver, cai no fluxo menu numerado
+  }
 
   switch (state.step) {
     case "menu":
@@ -170,7 +178,290 @@ export async function handleIncomingMessage(
   }
 }
 
-// ── Step handlers ────────────────────────────────
+// ── AI handler ───────────────────────────────────
+
+async function handleAiMessage(
+  store: { id: string; name: string; slug: string; plan: string },
+  state: ConversationState,
+  text: string,
+): Promise<ChatbotResult | null> {
+  // Carrega contexto da loja para a IA
+  const [services, barbers] = await Promise.all([
+    prisma.service.findMany({
+      where: { storeId: store.id, isActive: true },
+      select: { id: true, name: true, price: true, durationMinutes: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.barber.findMany({
+      where: { storeId: store.id, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  if (services.length === 0) return null; // cai no menu
+
+  const parsed = await parseIntent(text, {
+    storeName: store.name,
+    services: services.map((s) => s.name),
+    barbers: barbers.map((b) => b.name),
+  });
+
+  // Saudação → resposta acolhedora + perguntar o que precisa
+  if (parsed.intent === "saudacao") {
+    const reply = await generateReply(
+      `O cliente mandou uma saudação. Dê boas-vindas e pergunte como pode ajudar. Mencione que pode agendar horário, ver agendamentos ou tirar dúvidas. Serviços: ${services.map((s) => s.name).join(", ")}`,
+      { storeName: store.name },
+    );
+    return { reply, aiMessageCounted: true };
+  }
+
+  // Meus agendamentos
+  if (parsed.intent === "meus_agendamentos") {
+    setState({ ...state, step: "my_appointments" });
+    return handleMyAppointments(store as Parameters<typeof handleMyAppointments>[0], state, text);
+  }
+
+  // Falar com humano
+  if (parsed.intent === "falar_humano") {
+    clearState(state.storeId, state.phone);
+    const reply = await generateReply(
+      "O cliente quer falar com um humano. Avise educadamente que a equipe vai entrar em contato em breve.",
+      { storeName: store.name },
+    );
+    return { reply, aiMessageCounted: true };
+  }
+
+  // Agendar — a parte inteligente
+  if (parsed.intent === "agendar" && parsed.confidence >= 0.6) {
+    return handleAiScheduling(store, state, parsed, services, barbers);
+  }
+
+  // IA não entendeu com confiança → retorna null para cair no menu numerado
+  if (parsed.intent === "desconhecido" || parsed.confidence < 0.5) {
+    return null;
+  }
+
+  return null;
+}
+
+async function handleAiScheduling(
+  store: { id: string; name: string; slug: string },
+  state: ConversationState,
+  parsed: AiParsedIntent,
+  services: { id: string; name: string; price: number; durationMinutes: number }[],
+  barbers: { id: string; name: string }[],
+): Promise<ChatbotResult> {
+  // Encontra serviço pelo nome (fuzzy)
+  let service = parsed.serviceName
+    ? services.find((s) => s.name.toLowerCase().includes(parsed.serviceName!.toLowerCase()))
+    : null;
+
+  // Encontra barbeiro pelo nome (fuzzy)
+  let barber = parsed.barberName
+    ? barbers.find((b) => b.name.toLowerCase().includes(parsed.barberName!.toLowerCase()))
+    : null;
+
+  // Se falta serviço → pede
+  if (!service) {
+    const list = services
+      .map((s, i) => `${i + 1}️⃣ ${s.name} (${formatPrice(s.price)} · ${s.durationMinutes}min)`)
+      .join("\n");
+    setState({ ...state, step: "choose_service", serviceIds: services.map((s) => s.id) });
+    return {
+      reply: `Entendi que você quer agendar! ✂️\n\nQual serviço?\n\n${list}\n\n_Digite o número ou o nome do serviço._`,
+      aiMessageCounted: true,
+    };
+  }
+
+  // Se falta barbeiro → pede
+  if (!barber) {
+    if (barbers.length === 1) {
+      barber = barbers[0]; // só tem 1, usa direto
+    } else {
+      const list = barbers.map((b, i) => `${i + 1}️⃣ ${b.name}`).join("\n");
+      setState({
+        ...state,
+        step: "choose_barber",
+        serviceIds: [service.id],
+        serviceName: service.name,
+      });
+      return {
+        reply: `*${service.name}* selecionado! 👍\n\nCom qual barbeiro?\n\n${list}\n\n_Digite o número ou o nome._`,
+        aiMessageCounted: true,
+      };
+    }
+  }
+
+  // Se falta data → pede
+  const dateStr = parsed.date ? parseDateInput(parsed.date) : null;
+  if (!dateStr) {
+    setState({
+      ...state,
+      step: "choose_date",
+      serviceIds: [service.id],
+      serviceName: service.name,
+      barberId: barber.id,
+      barberName: barber.name,
+    });
+    return {
+      reply: `*${service.name}* com *${barber.name}* ✅\n\nQual dia você prefere?\n\nExemplos: _hoje_, _amanhã_, _segunda_, _15/06_`,
+      aiMessageCounted: true,
+    };
+  }
+
+  // Temos serviço, barbeiro e data — buscar slots
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dateObj = new Date(y, m - 1, d);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (dateObj < today) {
+    setState({
+      ...state,
+      step: "choose_date",
+      serviceIds: [service.id],
+      serviceName: service.name,
+      barberId: barber.id,
+      barberName: barber.name,
+    });
+    return { reply: "Essa data já passou. Escolha uma data a partir de hoje.", aiMessageCounted: true };
+  }
+
+  const slots = await getAvailableSlots({
+    barberId: barber.id,
+    date: dateObj,
+    durationMinutes: service.durationMinutes,
+    stepMinutes: 30,
+  });
+
+  if (slots.length === 0) {
+    setState({
+      ...state,
+      step: "choose_date",
+      serviceIds: [service.id],
+      serviceName: service.name,
+      barberId: barber.id,
+      barberName: barber.name,
+    });
+    return {
+      reply: `Sem horários disponíveis para *${dateObj.toLocaleDateString("pt-BR")}* com ${barber.name} 😕\n\nTente outro dia!`,
+      aiMessageCounted: true,
+    };
+  }
+
+  // Se o cliente especificou um horário, tenta encaixar direto
+  if (parsed.time) {
+    const requestedTime = normalizeTime(parsed.time);
+    if (requestedTime && slots.includes(requestedTime)) {
+      // Tem o horário exato! Agenda direto
+      return finishBooking(store, state, service, barber, dateStr, requestedTime);
+    }
+    // Horário não disponível — mostra os disponíveis
+    if (requestedTime) {
+      const list = slots.map((s, i) => `${i + 1}️⃣ ${s}`).join("\n");
+      setState({
+        ...state,
+        step: "choose_slot",
+        serviceIds: [service.id],
+        serviceName: service.name,
+        barberId: barber.id,
+        barberName: barber.name,
+        date: dateStr,
+        slots,
+      });
+      return {
+        reply: `O horário *${requestedTime}* não está disponível com ${barber.name} em ${dateObj.toLocaleDateString("pt-BR")} 😕\n\nHorários livres:\n\n${list}\n\n_Digite o número._`,
+        aiMessageCounted: true,
+      };
+    }
+  }
+
+  // Sem horário especificado — mostra slots
+  const list = slots.map((s, i) => `${i + 1}️⃣ ${s}`).join("\n");
+  setState({
+    ...state,
+    step: "choose_slot",
+    serviceIds: [service.id],
+    serviceName: service.name,
+    barberId: barber.id,
+    barberName: barber.name,
+    date: dateStr,
+    slots,
+  });
+
+  return {
+    reply: `*${service.name}* com *${barber.name}* em *${dateObj.toLocaleDateString("pt-BR")}* 🗓️\n\nHorários disponíveis:\n\n${list}\n\n_Digite o número do horário._`,
+    aiMessageCounted: true,
+  };
+}
+
+/** Normaliza referências de horário: "15h" → "15:00", "15:30" → "15:30" */
+function normalizeTime(raw: string): string | null {
+  const clean = raw.toLowerCase().trim();
+
+  // "15:00" ou "15:30"
+  const match1 = clean.match(/^(\d{1,2}):(\d{2})$/);
+  if (match1) return `${match1[1].padStart(2, "0")}:${match1[2]}`;
+
+  // "15h" ou "15h30"
+  const match2 = clean.match(/^(\d{1,2})h(\d{2})?$/);
+  if (match2) return `${match2[1].padStart(2, "0")}:${match2[2] || "00"}`;
+
+  return null;
+}
+
+/** Finaliza o agendamento (usado tanto pelo fluxo IA quanto menu) */
+async function finishBooking(
+  store: { id: string; name: string; slug: string },
+  state: ConversationState,
+  service: { id: string; name: string; price: number; durationMinutes: number },
+  barber: { id: string; name: string },
+  dateStr: string,
+  slot: string,
+): Promise<ChatbotResult> {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [h, min] = slot.split(":").map(Number);
+  const startAt = new Date(y, m - 1, d, h, min, 0, 0);
+  const endAt = new Date(startAt.getTime() + service.durationMinutes * 60_000);
+
+  const issue = await checkAvailability({ barberId: barber.id, startAt, endAt });
+  if (issue) {
+    return { reply: `Esse horário acabou de ser ocupado 😕\nTente outro horário ou mande "oi" para recomeçar.`, aiMessageCounted: true };
+  }
+
+  const phoneDigits = state.phone.replace(/\D/g, "");
+  let customer = await prisma.customer.findFirst({
+    where: { storeId: state.storeId, phone: phoneDigits },
+  });
+  if (!customer) {
+    customer = await prisma.customer.create({
+      data: { storeId: state.storeId, name: `WhatsApp ${phoneDigits.slice(-4)}`, phone: phoneDigits },
+    });
+  }
+
+  const code = await generateAppointmentCode(state.storeId, startAt);
+  await prisma.appointment.create({
+    data: {
+      code, storeId: state.storeId, customerId: customer.id, barberId: barber.id,
+      startAt, endAt, status: "SCHEDULED", source: "PUBLIC", total: service.price, discount: 0,
+      services: { create: [{ serviceId: service.id, price: service.price, durationMinutes: service.durationMinutes }] },
+    },
+  });
+
+  clearState(state.storeId, state.phone);
+
+  const dateFormatted = startAt.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+
+  const reply = await generateReply(
+    `Confirme o agendamento de forma simpática. Dados: ${service.name} com ${barber.name}, ${dateFormatted} às ${slot}, ${formatPrice(service.price)}, código ${code}. Diga que para cancelar é só mandar "cancelar" e para novo agendamento mandar "oi".`,
+    { storeName: store.name },
+  );
+
+  return { reply, aiMessageCounted: true };
+}
+
+// ── Step handlers (menu numerado — fallback) ─────
 
 async function handleMenu(
   store: { id: string; name: string },
