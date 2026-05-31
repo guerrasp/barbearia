@@ -13,13 +13,16 @@ enum Plan {
   FREE
   PRO
   BUSINESS
+  KORTA_IA
 }
 
 model Store {
   id        String   @id @default(uuid())
   name      String
-  slug      String   @unique
-  phone     String?
+  slug          String    @unique
+  slugChangedAt DateTime? @map("slug_changed_at")
+  phone         String?
+  whatsappPhone String?  @map("whatsapp_phone")
   email     String?
   address    String?
   logo       String?

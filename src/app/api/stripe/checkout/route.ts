@@ -7,8 +7,7 @@ import { requireAdminForStore } from "@/lib/auth-server";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  // FREE = "Pioneiro" (R$ 39,90), PRO (R$ 69,90), BUSINESS (R$ 99,90)
-  plan: z.enum(["FREE", "PRO", "BUSINESS"]),
+  plan: z.enum(["FREE", "PRO", "BUSINESS", "KORTA_IA"]),
   storeId: z.string(),
 });
 

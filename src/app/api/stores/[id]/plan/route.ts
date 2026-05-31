@@ -48,12 +48,15 @@ export async function GET(
       daysLeft: trial.daysLeft,
     },
     canWrite: trial.canWrite,
-    usage: { barbers: store._count.barbers },
+    usage: { barbers: store._count.barbers, aiMessagesUsed: 0 },
     limits: {
       maxBarbers: Number.isFinite(limits.maxBarbers) ? limits.maxBarbers : null,
       whatsappReminders: limits.whatsappReminders,
       multiUnit: limits.multiUnit,
       advancedReports: limits.advancedReports,
+      aiMessagesPerMonth: Number.isFinite(limits.aiMessagesPerMonth)
+        ? limits.aiMessagesPerMonth
+        : null,
     },
   });
 }

@@ -11,6 +11,7 @@ import {
   Sparkles,
   Zap,
   Rocket,
+  Bot,
   Clock,
   AlertTriangle,
 } from "lucide-react";
@@ -18,7 +19,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 
-type Plan = "FREE" | "PRO" | "BUSINESS";
+type Plan = "FREE" | "PRO" | "BUSINESS" | "KORTA_IA";
 
 interface PlanInfo {
   plan: Plan;
@@ -31,12 +32,13 @@ interface PlanInfo {
     daysLeft: number | null;
   };
   canWrite: boolean;
-  usage: { barbers: number };
+  usage: { barbers: number; aiMessagesUsed?: number };
   limits: {
     maxBarbers: number | null;
     whatsappReminders: boolean;
     multiUnit: boolean;
     advancedReports: boolean;
+    aiMessagesPerMonth: number | null;
   };
 }
 
@@ -44,12 +46,14 @@ const PLAN_LABELS: Record<Plan, string> = {
   FREE: "Pioneiro",
   PRO: "Pro",
   BUSINESS: "Business",
+  KORTA_IA: "Korta IA",
 };
 
 const PLAN_PRICES: Record<Plan, string> = {
   FREE: "R$ 39,90/mês",
   PRO: "R$ 69,90/mês",
   BUSINESS: "R$ 99,90/mês",
+  KORTA_IA: "R$ 149,90/mês",
 };
 
 const PLAN_BENEFITS: Record<Plan, string[]> = {
@@ -57,19 +61,26 @@ const PLAN_BENEFITS: Record<Plan, string[]> = {
     "Até 2 barbeiros",
     "Agendamentos ilimitados",
     "Página pública da loja",
-    "Lembrete por email",
+    "Lembretes por WhatsApp e email",
   ],
   PRO: [
     "Até 5 barbeiros",
-    "Lembretes por WhatsApp",
     "Suporte prioritário",
     "Tudo do Pioneiro",
   ],
   BUSINESS: [
     "Barbeiros ilimitados",
+    "Atendente virtual IA (50 msg/mês)",
     "Multi-unidades",
     "Relatórios avançados",
     "Tudo do Pro",
+  ],
+  KORTA_IA: [
+    "Atendente virtual IA ilimitado 24h",
+    "Barbeiros ilimitados",
+    "Multi-unidades",
+    "Relatórios avançados",
+    "Tudo do Business",
   ],
 };
 
@@ -77,6 +88,7 @@ const PLAN_ICONS: Record<Plan, React.ReactNode> = {
   FREE: <Rocket className="w-5 h-5" />,
   PRO: <Sparkles className="w-5 h-5" />,
   BUSINESS: <Zap className="w-5 h-5" />,
+  KORTA_IA: <Bot className="w-5 h-5" />,
 };
 
 export default function PlanoPage() {
@@ -167,8 +179,8 @@ export default function PlanoPage() {
   const usagePct = limit ? Math.min(100, (usage / limit) * 100) : 0;
 
   // Lista de planos disponíveis para upgrade (não mostra o plano atual se já pago)
-  const plansToShow: Plan[] = (["FREE", "PRO", "BUSINESS"] as Plan[]).filter((p) => {
-    // Se está no trial (sem assinatura), mostra todos os 3 incluindo Pioneiro
+  const plansToShow: Plan[] = (["FREE", "PRO", "BUSINESS", "KORTA_IA"] as Plan[]).filter((p) => {
+    // Se está no trial (sem assinatura), mostra todos
     if (!info.hasSubscription) return true;
     // Já tem assinatura: só mostra planos diferentes do atual
     return p !== currentPlan;
@@ -271,10 +283,10 @@ export default function PlanoPage() {
           <h2 className="text-lg font-semibold text-foreground mb-3">
             {info.hasSubscription ? "Trocar plano" : "Escolha um plano"}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl">
             {plansToShow.map((plan) => {
               const isCurrent = plan === currentPlan && !info.hasSubscription;
-              const highlight = plan === "FREE";
+              const highlight = plan === "KORTA_IA";
               return (
                 <Card
                   key={plan}

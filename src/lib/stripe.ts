@@ -20,12 +20,13 @@ export function isStripeEnabled(): boolean {
  * Plano "FREE" no enum do Prisma corresponde ao tier "Pioneiro" no produto.
  * É um plano pago (R$ 39,90) com 14 dias de trial gratuito sem cartão.
  */
-export type PaidPlan = "FREE" | "PRO" | "BUSINESS";
+export type PaidPlan = "FREE" | "PRO" | "BUSINESS" | "KORTA_IA";
 
 export const STRIPE_PRICE_IDS: Record<PaidPlan, string> = {
   FREE: process.env.STRIPE_PRICE_PIONEIRO || "",
   PRO: process.env.STRIPE_PRICE_PRO || "",
   BUSINESS: process.env.STRIPE_PRICE_BUSINESS || "",
+  KORTA_IA: process.env.STRIPE_PRICE_KORTA_IA || "",
 };
 
 export function priceIdForPlan(plan: PaidPlan): string {
@@ -38,5 +39,6 @@ export function planFromPriceId(priceId: string): PaidPlan | null {
   if (priceId === STRIPE_PRICE_IDS.FREE) return "FREE";
   if (priceId === STRIPE_PRICE_IDS.PRO) return "PRO";
   if (priceId === STRIPE_PRICE_IDS.BUSINESS) return "BUSINESS";
+  if (priceId === STRIPE_PRICE_IDS.KORTA_IA) return "KORTA_IA";
   return null;
 }

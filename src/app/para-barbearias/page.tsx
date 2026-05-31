@@ -7,6 +7,7 @@ import {
   Users,
   Crown,
   Rocket,
+  Bot,
 } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -41,22 +42,20 @@ const PLANS: Plan[] = [
       "Até 2 barbeiros",
       "Agendamentos ilimitados",
       "Link público próprio",
-      "Lembrete por email (24h antes)",
+      "Lembretes por WhatsApp e email",
       "Painel + relatórios básicos",
     ],
   },
   {
     name: "Pro",
-    badge: "Mais popular",
     price: "R$ 69,90",
     priceSuffix: "/mês",
     description: "Para barbearias que cresceram do dono solo para uma equipe.",
     cta: { label: "Começar trial grátis", href: "/criar-loja?plan=PRO" },
-    highlight: true,
     icon: <Sparkles className="w-5 h-5" />,
     features: [
       "Até 5 barbeiros",
-      "Lembretes automáticos por WhatsApp",
+      "Lembretes por WhatsApp e email",
       "Comissão automática por barbeiro",
       "Múltiplos serviços por horário",
       "Suporte prioritário",
@@ -66,15 +65,32 @@ const PLANS: Plan[] = [
     name: "Business",
     price: "R$ 99,90",
     priceSuffix: "/mês",
-    description: "Multi-unidades, time grande e relatórios avançados.",
+    description: "Multi-unidades, time grande e IA para experimentar.",
     cta: { label: "Começar trial grátis", href: "/criar-loja?plan=BUSINESS" },
     icon: <Crown className="w-5 h-5" />,
     features: [
       "Barbeiros ilimitados",
+      "Atendente virtual IA (50 msg/mês)",
       "Múltiplas unidades",
       "Relatórios avançados + exportação",
-      "API para integrações",
-      "Onboarding guiado",
+      "Tudo do Pro",
+    ],
+  },
+  {
+    name: "Korta IA",
+    badge: "Novo",
+    price: "R$ 149,90",
+    priceSuffix: "/mês",
+    description: "Atendente virtual 24h — sua barbearia nunca dorme.",
+    cta: { label: "Começar trial grátis", href: "/criar-loja?plan=KORTA_IA" },
+    highlight: true,
+    icon: <Bot className="w-5 h-5" />,
+    features: [
+      "Atendente virtual IA ilimitado 24h",
+      "Agendamento por conversa no WhatsApp",
+      "Barbeiros ilimitados",
+      "Multi-unidades + relatórios avançados",
+      "Tudo do Business",
     ],
   },
 ];
@@ -116,7 +132,7 @@ export default function ParaBarbeariaPage() {
         </section>
 
         {/* Planos */}
-        <section className="grid md:grid-cols-3 gap-5">
+        <section className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLANS.map((plan) => (
             <PlanCard key={plan.name} plan={plan} />
           ))}
