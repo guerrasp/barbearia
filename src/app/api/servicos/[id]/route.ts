@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserForStore } from "@/lib/auth-server";
+import { requireAdminForStore } from "@/lib/auth-server";
 
 async function loadServiceStore(id: string) {
   return prisma.service.findUnique({
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!ownership) {
     return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
   }
-  const auth = await requireUserForStore(req, ownership.storeId);
+  const auth = await requireAdminForStore(req, ownership.storeId);
   if (!auth.ok) return auth.response;
 
   const service = await prisma.service.findUnique({
@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!ownership) {
       return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
     }
-    const auth = await requireUserForStore(req, ownership.storeId);
+    const auth = await requireAdminForStore(req, ownership.storeId);
     if (!auth.ok) return auth.response;
 
     const body = await req.json();
@@ -71,7 +71,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!ownership) {
       return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
     }
-    const auth = await requireUserForStore(req, ownership.storeId);
+    const auth = await requireAdminForStore(req, ownership.storeId);
     if (!auth.ok) return auth.response;
 
     const linked = await prisma.appointmentService.count({ where: { serviceId: id } });

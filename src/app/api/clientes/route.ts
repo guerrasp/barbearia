@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUserForStore } from "@/lib/auth-server";
+import { requireAdminForStore } from "@/lib/auth-server";
 
 const customerSchema = z.object({
   name: z.string().min(2),
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
   }
 
-  const auth = await requireUserForStore(req, storeId);
+  const auth = await requireAdminForStore(req, storeId);
   if (!auth.ok) return auth.response;
 
   const customers = await prisma.customer.findMany({
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = customerSchema.parse(body);
 
-    const auth = await requireUserForStore(req, data.storeId);
+    const auth = await requireAdminForStore(req, data.storeId);
     if (!auth.ok) return auth.response;
 
     const customer = await prisma.customer.create({

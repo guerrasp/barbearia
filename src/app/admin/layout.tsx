@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
@@ -9,6 +10,7 @@ import { Toaster } from "react-hot-toast";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -16,6 +18,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       window.location.href = "/";
     }
   }, [user, isLoading]);
+
+  // Redireciona BARBER de páginas admin-only para a agenda
+  const ADMIN_ONLY = ["/admin/servicos", "/admin/barbeiros", "/admin/clientes", "/admin/configuracoes"];
+  useEffect(() => {
+    if (!isLoading && user?.role === "BARBER") {
+      const isAdminOnly = pathname === "/admin" || ADMIN_ONLY.some((p) => pathname.startsWith(p));
+      if (isAdminOnly) {
+        window.location.href = "/admin/agenda";
+      }
+    }
+  }, [user, isLoading, pathname]);
 
   if (isLoading) {
     return (

@@ -19,16 +19,26 @@ import {
   X,
 } from "lucide-react";
 
-const menuItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/agendamentos", label: "Agendamentos", icon: CalendarDays },
-  { href: "/admin/agenda", label: "Agenda", icon: CalendarRange },
-  { href: "/admin/servicos", label: "Serviços", icon: Scissors },
-  { href: "/admin/barbeiros", label: "Barbeiros", icon: UserCog },
-  { href: "/admin/clientes", label: "Clientes", icon: Users },
-  { href: "/admin/configuracoes/plano", label: "Plano", icon: Crown },
-  { href: "/admin/configuracoes/personalizacao", label: "Personalização", icon: Palette },
-  { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
+type UserRole = "ADMIN" | "BARBER" | "CUSTOMER";
+
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles: UserRole[];
+}
+
+const menuItems: MenuItem[] = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN"] },
+  { href: "/admin/agendamentos", label: "Agendamentos", icon: CalendarDays, roles: ["ADMIN"] },
+  { href: "/admin/agenda", label: "Agenda", icon: CalendarRange, roles: ["ADMIN", "BARBER"] },
+  { href: "/admin/servicos", label: "Serviços", icon: Scissors, roles: ["ADMIN"] },
+  { href: "/admin/barbeiros", label: "Barbeiros", icon: UserCog, roles: ["ADMIN"] },
+  { href: "/admin/clientes", label: "Clientes", icon: Users, roles: ["ADMIN"] },
+  { href: "/admin/meu-perfil", label: "Meu Perfil", icon: UserCog, roles: ["BARBER"] },
+  { href: "/admin/configuracoes/plano", label: "Plano", icon: Crown, roles: ["ADMIN"] },
+  { href: "/admin/configuracoes/personalizacao", label: "Personalização", icon: Palette, roles: ["ADMIN"] },
+  { href: "/admin/configuracoes", label: "Configurações", icon: Settings, roles: ["ADMIN"] },
 ];
 
 interface SidebarProps {
@@ -66,7 +76,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => user && item.roles.includes(user.role)).map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/admin" &&

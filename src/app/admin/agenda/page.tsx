@@ -75,7 +75,7 @@ function minToHhmm(m: number) {
 }
 
 export default function AgendaPage() {
-  const { store } = useAuth();
+  const { store, user } = useAuth();
   const [date, setDate] = useState(() => new Date());
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -94,14 +94,20 @@ export default function AgendaPage() {
     if (!store) return;
     setIsLoading(true);
     try {
+      // Se for barbeiro, filtra apenas sua agenda
+      const barberFilter = user?.role === "BARBER" && user.barberId
+        ? `&barberId=${user.barberId}` : "";
       const [bs, as] = await Promise.all([
         api.get<Barber[]>(`/barbeiros?storeId=${store.id}&onlyActive=true`),
         api.get<Appointment[]>(
-          `/agendamentos?storeId=${store.id}&from=${dayStart.toISOString()}&to=${dayEnd.toISOString()}`,
+          `/agendamentos?storeId=${store.id}&from=${dayStart.toISOString()}&to=${dayEnd.toISOString()}${barberFilter}`,
         ),
       ]);
+      // Se for barbeiro, mostra apenas sua coluna
+      const filteredBarbers = user?.role === "BARBER" && user.barberId
+        ? bs.filter((b) => b.id === user.barberId) : bs;
       const full = await Promise.all(
-        bs.map(async (b) => {
+        filteredBarbers.map(async (b) => {
           try {
             return await api.get<Barber>(`/barbeiros/${b.id}`);
           } catch {
@@ -116,7 +122,7 @@ export default function AgendaPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [store, dayStart, dayEnd]);
+  }, [store, user, dayStart, dayEnd]);
 
   useEffect(() => {
     fetchAll();

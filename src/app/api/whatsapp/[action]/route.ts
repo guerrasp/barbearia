@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserForStore } from "@/lib/auth-server";
+import { requireAdminForStore } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
 const WHATSAPP_SERVER = process.env.WHATSAPP_SERVER_URL || "";
@@ -31,7 +31,7 @@ export async function GET(
   }
 
   // Auth check
-  const auth = await requireUserForStore(req, storeId);
+  const auth = await requireAdminForStore(req, storeId);
   if (!auth.ok) return auth.response;
 
   switch (action) {
@@ -59,7 +59,7 @@ export async function POST(
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
   }
 
-  const auth = await requireUserForStore(req, storeId);
+  const auth = await requireAdminForStore(req, storeId);
   if (!auth.ok) return auth.response;
 
   switch (action) {

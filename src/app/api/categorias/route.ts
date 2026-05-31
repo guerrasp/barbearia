@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserForStore } from "@/lib/auth-server";
+import { requireAdminForStore } from "@/lib/auth-server";
 
 // GET - Listar categorias da loja
 export async function GET(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
   }
 
-  const auth = await requireUserForStore(req, storeId);
+  const auth = await requireAdminForStore(req, storeId);
   if (!auth.ok) return auth.response;
 
   const categories = await prisma.category.findMany({
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nome e storeId obrigatórios" }, { status: 400 });
     }
 
-    const auth = await requireUserForStore(req, storeId);
+    const auth = await requireAdminForStore(req, storeId);
     if (!auth.ok) return auth.response;
 
     const category = await prisma.category.create({

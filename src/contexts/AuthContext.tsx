@@ -16,6 +16,7 @@ interface User {
   role: "ADMIN" | "BARBER" | "CUSTOMER";
   storeId: string;
   customerId: string | null;
+  barberId: string | null;
   store: Store;
 }
 

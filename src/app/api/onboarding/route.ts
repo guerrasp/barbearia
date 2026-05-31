@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
           role: result.user.role,
           storeId: result.user.storeId,
           customerId: null,
+          barberId: null,
           store: result.store,
         },
       },

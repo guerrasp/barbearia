@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { assertStoreCanWrite } from "@/lib/guards";
-import { requireUserForStore } from "@/lib/auth-server";
+import { requireAdminForStore } from "@/lib/auth-server";
 
 const serviceSchema = z.object({
   name: z.string().min(2, "Nome obrigatório"),
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "storeId obrigatório" }, { status: 400 });
   }
 
-  const auth = await requireUserForStore(req, storeId);
+  const auth = await requireAdminForStore(req, storeId);
   if (!auth.ok) return auth.response;
 
   const services = await prisma.service.findMany({
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = serviceSchema.parse(body);
 
-    const auth = await requireUserForStore(req, data.storeId);
+    const auth = await requireAdminForStore(req, data.storeId);
     if (!auth.ok) return auth.response;
 
     const blocked = await assertStoreCanWrite(data.storeId);

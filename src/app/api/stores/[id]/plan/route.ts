@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { limitsFor } from "@/lib/plan-limits";
 import { getTrialStatus } from "@/lib/trial";
-import { requireUserForStore } from "@/lib/auth-server";
+import { requireAdminForStore } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const auth = await requireUserForStore(req, id);
+  const auth = await requireAdminForStore(req, id);
   if (!auth.ok) return auth.response;
 
   const store = await prisma.store.findUnique({

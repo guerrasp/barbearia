@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { RESERVED_SLUGS, normalizeSlug } from "@/lib/slugs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUserForStore } from "@/lib/auth-server";
+import { requireUserForStore, requireAdminForStore } from "@/lib/auth-server";
 
 const SLUG_COOLDOWN_DAYS = 15;
 
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const auth = await requireUserForStore(req, id);
+    const auth = await requireAdminForStore(req, id);
     if (!auth.ok) return auth.response;
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);

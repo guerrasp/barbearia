@@ -20,10 +20,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Buscar o usuário no banco
+    // 2. Buscar o usuário no banco (inclui barber vinculado, se existir)
     const user = await prisma.user.findUnique({
       where: { supabaseId: authData.user.id },
-      include: { store: true },
+      include: {
+        store: true,
+        barber: { select: { id: true } },
+      },
     });
 
     if (!user) {
@@ -34,7 +37,16 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        storeId: user.storeId,
+        customerId: user.customerId,
+        barberId: user.barber?.id ?? null,
+        store: user.store,
+      },
       session: authData.session,
     });
   } catch (error) {
