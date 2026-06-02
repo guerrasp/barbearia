@@ -72,7 +72,7 @@ Regras:
 
   try {
     const response = await ai.messages.create({
-      model: "claude-haiku-4-20250414",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 200,
       messages: [{ role: "user", content: message }],
       system: systemPrompt,
@@ -114,7 +114,7 @@ export async function generateReply(
 
   try {
     const response = await ai.messages.create({
-      model: "claude-haiku-4-20250414",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
       system: `Você é o atendente virtual da "${context.storeName}", uma barbearia.
 Seja simpático, direto e use emojis com moderação. Sempre em português BR.
