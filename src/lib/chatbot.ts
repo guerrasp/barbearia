@@ -36,33 +36,49 @@ interface ConversationState {
   updatedAt: number;
 }
 
-// In-memory store (OK para v1 — estado se perde no redeploy, cliente recomeça)
-const conversations = new Map<string, ConversationState>();
+// Estado persistido no banco (tabela chatbot_conversations).
+// Em serverless a memória não é compartilhada entre instâncias, então
+// cada mensagem é carregada/salva no banco para a conversa não "resetar".
 
-// Limpa conversas inativas (>30min)
-setInterval(() => {
-  const cutoff = Date.now() - 30 * 60_000;
-  for (const [key, state] of conversations) {
-    if (state.updatedAt < cutoff) conversations.delete(key);
-  }
-}, 60_000).unref();
-
-function convKey(storeId: string, phone: string) {
-  return `${storeId}:${phone}`;
+async function loadConv(storeId: string, phone: string): Promise<ConversationState> {
+  const row = await prisma.chatbotConversation.findUnique({
+    where: { storeId_phone: { storeId, phone } },
+  });
+  if (!row) return { step: "menu", storeId, phone, updatedAt: Date.now() };
+  const data = (row.data ?? {}) as unknown as Partial<ConversationState>;
+  return {
+    step: row.step as ConversationStep,
+    storeId,
+    phone,
+    serviceIds: data.serviceIds,
+    serviceName: data.serviceName,
+    barberId: data.barberId,
+    barberName: data.barberName,
+    date: data.date,
+    slots: data.slots,
+    updatedAt: row.updatedAt.getTime(),
+  };
 }
 
-function getState(storeId: string, phone: string): ConversationState {
-  const key = convKey(storeId, phone);
-  return conversations.get(key) || { step: "menu", storeId, phone, updatedAt: Date.now() };
+async function saveConv(state: ConversationState) {
+  const { storeId, phone, step } = state;
+  const data = {
+    serviceIds: state.serviceIds ?? null,
+    serviceName: state.serviceName ?? null,
+    barberId: state.barberId ?? null,
+    barberName: state.barberName ?? null,
+    date: state.date ?? null,
+    slots: state.slots ?? null,
+  };
+  await prisma.chatbotConversation.upsert({
+    where: { storeId_phone: { storeId, phone } },
+    create: { storeId, phone, step, data },
+    update: { step, data },
+  });
 }
 
-function setState(state: ConversationState) {
-  state.updatedAt = Date.now();
-  conversations.set(convKey(state.storeId, state.phone), state);
-}
-
-function clearState(storeId: string, phone: string) {
-  conversations.delete(convKey(storeId, phone));
+async function dropConv(storeId: string, phone: string) {
+  await prisma.chatbotConversation.deleteMany({ where: { storeId, phone } });
 }
 
 // ── Helpers ──────────────────────────────────────
@@ -147,10 +163,10 @@ export async function handleIncomingMessage(
   // Reset: se digitar "menu", "voltar", "0" → volta ao menu
   const lower = text.toLowerCase().trim();
   if (["menu", "voltar", "0"].includes(lower)) {
-    clearState(storeId, phone);
+    await dropConv(storeId, phone);
   }
 
-  const state = getState(storeId, phone);
+  const state = await loadConv(storeId, phone);
 
   // ── Modo IA: tenta resolver com linguagem natural ──
   if (isAiEnabled() && state.step === "menu") {
@@ -173,7 +189,7 @@ export async function handleIncomingMessage(
     case "my_appointments":
       return handleMyAppointments(store, state, text);
     default:
-      clearState(storeId, phone);
+      await dropConv(storeId, phone);
       return handleMenu(store, state);
   }
 }
@@ -218,13 +234,13 @@ async function handleAiMessage(
 
   // Meus agendamentos
   if (parsed.intent === "meus_agendamentos") {
-    setState({ ...state, step: "my_appointments" });
+    await saveConv({ ...state, step: "my_appointments" });
     return handleMyAppointments(store as Parameters<typeof handleMyAppointments>[0], state, text);
   }
 
   // Falar com humano
   if (parsed.intent === "falar_humano") {
-    clearState(state.storeId, state.phone);
+    await dropConv(state.storeId, state.phone);
     const reply = await generateReply(
       "O cliente quer falar com um humano. Avise educadamente que a equipe vai entrar em contato em breve.",
       { storeName: store.name },
@@ -267,7 +283,7 @@ async function handleAiScheduling(
     const list = services
       .map((s, i) => `${i + 1}️⃣ ${s.name} (${formatPrice(s.price)} · ${s.durationMinutes}min)`)
       .join("\n");
-    setState({ ...state, step: "choose_service", serviceIds: services.map((s) => s.id) });
+    await saveConv({ ...state, step: "choose_service", serviceIds: services.map((s) => s.id) });
     return {
       reply: `Entendi que você quer agendar! ✂️\n\nQual serviço?\n\n${list}\n\n_Digite o número ou o nome do serviço._`,
       aiMessageCounted: true,
@@ -280,7 +296,7 @@ async function handleAiScheduling(
       barber = barbers[0]; // só tem 1, usa direto
     } else {
       const list = barbers.map((b, i) => `${i + 1}️⃣ ${b.name}`).join("\n");
-      setState({
+      await saveConv({
         ...state,
         step: "choose_barber",
         serviceIds: [service.id],
@@ -296,7 +312,7 @@ async function handleAiScheduling(
   // Se falta data → pede
   const dateStr = parsed.date ? parseDateInput(parsed.date) : null;
   if (!dateStr) {
-    setState({
+    await saveConv({
       ...state,
       step: "choose_date",
       serviceIds: [service.id],
@@ -317,7 +333,7 @@ async function handleAiScheduling(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (dateObj < today) {
-    setState({
+    await saveConv({
       ...state,
       step: "choose_date",
       serviceIds: [service.id],
@@ -336,7 +352,7 @@ async function handleAiScheduling(
   });
 
   if (slots.length === 0) {
-    setState({
+    await saveConv({
       ...state,
       step: "choose_date",
       serviceIds: [service.id],
@@ -360,7 +376,7 @@ async function handleAiScheduling(
     // Horário não disponível — mostra os disponíveis
     if (requestedTime) {
       const list = slots.map((s, i) => `${i + 1}️⃣ ${s}`).join("\n");
-      setState({
+      await saveConv({
         ...state,
         step: "choose_slot",
         serviceIds: [service.id],
@@ -379,7 +395,7 @@ async function handleAiScheduling(
 
   // Sem horário especificado — mostra slots
   const list = slots.map((s, i) => `${i + 1}️⃣ ${s}`).join("\n");
-  setState({
+  await saveConv({
     ...state,
     step: "choose_slot",
     serviceIds: [service.id],
@@ -449,7 +465,7 @@ async function finishBooking(
     },
   });
 
-  clearState(state.storeId, state.phone);
+  await dropConv(state.storeId, state.phone);
 
   const dateFormatted = startAt.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
@@ -467,7 +483,7 @@ async function handleMenu(
   store: { id: string; name: string },
   state: ConversationState,
 ): Promise<ChatbotResult> {
-  setState({ ...state, step: "choose_service" });
+  await saveConv({ ...state, step: "choose_service" });
 
   const services = await prisma.service.findMany({
     where: { storeId: store.id, isActive: true },
@@ -476,7 +492,7 @@ async function handleMenu(
   });
 
   if (services.length === 0) {
-    clearState(state.storeId, state.phone);
+    await dropConv(state.storeId, state.phone);
     return {
       reply: `Olá! A *${store.name}* ainda não configurou serviços. Entre em contato diretamente.`,
       aiMessageCounted: true,
@@ -488,7 +504,7 @@ async function handleMenu(
     .join("\n");
 
   // Salva mapeamento para usar no próximo passo
-  setState({
+  await saveConv({
     ...state,
     step: "choose_service",
     serviceIds: services.map((s) => s.id),
@@ -526,7 +542,7 @@ async function handleChooseService(
   });
 
   if (barbers.length === 0) {
-    clearState(state.storeId, state.phone);
+    await dropConv(state.storeId, state.phone);
     return { reply: "Nenhum barbeiro disponível no momento. Tente novamente mais tarde.", aiMessageCounted: true };
   }
 
@@ -534,7 +550,7 @@ async function handleChooseService(
     .map((b, i) => `${i + 1}️⃣ ${b.name}`)
     .join("\n");
 
-  setState({
+  await saveConv({
     ...state,
     step: "choose_barber",
     serviceIds: [selected.id],
@@ -565,7 +581,7 @@ async function handleChooseBarber(
 
   const selected = barbers[choice - 1];
 
-  setState({
+  await saveConv({
     ...state,
     step: "choose_date",
     barberId: selected.id,
@@ -599,7 +615,7 @@ async function handleChooseDate(
   }
 
   if (!state.barberId || !state.serviceIds?.length) {
-    clearState(state.storeId, state.phone);
+    await dropConv(state.storeId, state.phone);
     return { reply: "Sessão expirada. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
@@ -627,7 +643,7 @@ async function handleChooseDate(
     .map((s, i) => `${i + 1}️⃣ ${s}`)
     .join("\n");
 
-  setState({
+  await saveConv({
     ...state,
     step: "choose_slot",
     date: dateStr,
@@ -646,7 +662,7 @@ async function handleChooseSlot(
   text: string,
 ): Promise<ChatbotResult> {
   if (!state.slots || !state.date || !state.barberId || !state.serviceIds?.length) {
-    clearState(state.storeId, state.phone);
+    await dropConv(state.storeId, state.phone);
     return { reply: "Sessão expirada. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
@@ -667,7 +683,7 @@ async function handleChooseSlot(
   });
 
   if (!service) {
-    clearState(state.storeId, state.phone);
+    await dropConv(state.storeId, state.phone);
     return { reply: "Serviço não encontrado. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
@@ -719,7 +735,7 @@ async function handleChooseSlot(
     },
   });
 
-  clearState(state.storeId, state.phone);
+  await dropConv(state.storeId, state.phone);
 
   const dateFormatted = startAt.toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -745,7 +761,7 @@ async function handleMyAppointments(
   });
 
   if (!customer) {
-    clearState(state.storeId, state.phone);
+    await dropConv(state.storeId, state.phone);
     return { reply: "Não encontramos agendamentos para este número. Mande *oi* para agendar!", aiMessageCounted: true };
   }
 
@@ -764,7 +780,7 @@ async function handleMyAppointments(
     take: 5,
   });
 
-  clearState(state.storeId, state.phone);
+  await dropConv(state.storeId, state.phone);
 
   if (upcoming.length === 0) {
     return { reply: "Você não tem agendamentos futuros. Mande *oi* para agendar!", aiMessageCounted: true };

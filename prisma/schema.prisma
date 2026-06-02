@@ -287,6 +287,22 @@ model ChatbotMessage {
   @@map("chatbot_messages")
 }
 
+// Estado da conversa do chatbot por (loja, telefone).
+// Persistido no banco porque em serverless a memória não é compartilhada
+// entre instâncias — cada mensagem pode cair numa instância diferente.
+model ChatbotConversation {
+  storeId   String   @map("store_id")
+  phone     String
+  step      String   @default("menu")
+  data      Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([storeId, phone])
+  @@index([updatedAt])
+  @@map("chatbot_conversations")
+}
+
 // ==================== CLUBE DE ASSINATURA ====================
 
 model SubscriptionPlan {
