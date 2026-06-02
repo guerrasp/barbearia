@@ -166,19 +166,43 @@ function slotNatural(s: string): string {
   return m === "00" ? `${hh}h` : `${hh}h${m}`;
 }
 
-/** Escolhe um horário pela hora dita ("10h", "14:30", "10") ou pelo índice. */
+/** Escolhe um horário a partir de uma frase ("13h perfeito", "pode ser 14:30",
+ *  "às 10") ou pelo índice. Procura o padrão de hora em qualquer lugar do texto. */
 function pickSlot(text: string, slots: string[]): string | null {
-  const t = text.trim().toLowerCase();
-  const hm = normalizeTime(t);
-  if (hm && slots.includes(hm)) return hm;
-  // número puro: pode ser hora (10 → 10:00) ou índice da lista
-  if (/^\d{1,2}$/.test(t)) {
-    const n = parseInt(t);
+  const t = text.toLowerCase();
+
+  // Padrões de hora, do mais específico ao mais genérico
+  const patterns: RegExp[] = [
+    /(\d{1,2})[:h](\d{2})/,        // 14:30 ou 14h30
+    /(\d{1,2})\s*h\b/,             // 13h
+    /\b(\d{1,2})\s*horas?\b/,     // 13 horas
+    /\b(?:[àa]s?)\s*(\d{1,2})\b/, // às 13 / as 13 / a 13
+  ];
+  for (const re of patterns) {
+    const m = t.match(re);
+    if (m) {
+      const hh = parseInt(m[1]).toString().padStart(2, "0");
+      const mm = (m[2] || "00").padStart(2, "0");
+      const hm = `${hh}:${mm}`;
+      if (slots.includes(hm)) return hm;
+    }
+  }
+
+  // Número puro: pode ser hora cheia (10 → 10:00) ou índice da lista
+  const bare = t.trim().match(/^(\d{1,2})$/);
+  if (bare) {
+    const n = parseInt(bare[1]);
     const asTime = `${n.toString().padStart(2, "0")}:00`;
     if (slots.includes(asTime)) return asTime;
     if (n >= 1 && n <= slots.length) return slots[n - 1];
   }
   return null;
+}
+
+/** Link público de agendamento da loja (fallback quando o bot não entende). */
+function bookingLink(slug: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL || "https://korta.vercel.app";
+  return `${base}/agendar/${slug}`;
 }
 
 /** Detecta perguntas frequentes (FAQ) para responder sem perder o fluxo. */
@@ -696,7 +720,7 @@ async function handleChooseBarber(
 }
 
 async function handleChooseDate(
-  store: { id: string; name: string },
+  store: { id: string; name: string; slug: string },
   state: ConversationState,
   text: string,
 ): Promise<ChatbotResult> {
@@ -730,7 +754,10 @@ async function handleChooseDate(
         };
       }
     }
-    return { reply: `Não entendi a data. Tente: _hoje_, _amanhã_, _segunda_, ou _15/06_.`, aiMessageCounted: true };
+    return {
+      reply: `Não peguei o dia 😅 Pode dizer _hoje_, _amanhã_, _sexta_ ou uma data tipo _15/06_.\n\nOu, se preferir, agende direto pelo site:\n${bookingLink(store.slug)}`,
+      aiMessageCounted: true,
+    };
   }
 
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -796,7 +823,10 @@ async function handleChooseSlot(
   const selectedSlot = pickSlot(text, state.slots);
   if (!selectedSlot) {
     const horarios = naturalJoin(state.slots.map(slotNatural));
-    return { reply: `Esse horário não tá na lista 😅 Os disponíveis são: ${horarios}. Qual prefere?`, aiMessageCounted: true };
+    return {
+      reply: `Hmm, não consegui identificar o horário 😅 Os disponíveis são: ${horarios}.\n\nÉ só me dizer um deles. Se preferir, você também pode agendar direto pelo site:\n${bookingLink(store.slug)}`,
+      aiMessageCounted: true,
+    };
   }
 
   const [y, m, d] = state.date.split("-").map(Number);
