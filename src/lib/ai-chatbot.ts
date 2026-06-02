@@ -17,7 +17,7 @@ export function isAiEnabled(): boolean {
  * Resultado da extração de intenção da IA.
  */
 export interface AiParsedIntent {
-  intent: "agendar" | "meus_agendamentos" | "cancelar" | "falar_humano" | "saudacao" | "desconhecido";
+  intent: "agendar" | "meus_agendamentos" | "cancelar" | "assinar" | "falar_humano" | "saudacao" | "desconhecido";
   serviceName?: string;
   barberName?: string;
   date?: string;       // "hoje", "amanha", "segunda", "15/06", etc
@@ -53,7 +53,7 @@ Serviços disponíveis: ${context.services.join(", ")}
 Barbeiros disponíveis: ${context.barbers.join(", ")}
 
 Extraia:
-- intent: "agendar" | "meus_agendamentos" | "cancelar" | "falar_humano" | "saudacao" | "desconhecido"
+- intent: "agendar" | "meus_agendamentos" | "cancelar" | "assinar" | "falar_humano" | "saudacao" | "desconhecido"
 - serviceName: nome do serviço mencionado (deve ser um dos listados, ou null)
 - barberName: nome do barbeiro mencionado (deve ser um dos listados, ou null)
 - date: referência temporal ("hoje", "amanha", "segunda", "15/06", etc, ou null)
@@ -65,6 +65,7 @@ Regras:
 - Se menciona "agendar", "cortar", "marcar", "quero", nomes de serviço → intent = "agendar"
 - Se menciona "meus horários", "meus agendamentos", "quando é" → intent = "meus_agendamentos"
 - Se menciona "cancelar", "desmarcar" → intent = "cancelar"
+- Se menciona "assinar", "assinatura", "clube", "plano mensal", "mensalidade", "ser membro" → intent = "assinar"
 - Se menciona "falar com alguém", "atendente", "humano" → intent = "falar_humano"
 - Faça fuzzy matching nos nomes (ex: "degradê" → "Corte Degradê", "Pedro" → "Pedro")
 - "tarde" = após 12:00, "manhã" = antes de 12:00

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getAvailableSlots, checkAvailability, generateAppointmentCode } from "@/lib/scheduling";
 import { limitsFor } from "@/lib/plan-limits";
 import { parseIntent, isAiEnabled, generateReply, type AiParsedIntent } from "@/lib/ai-chatbot";
+import { notifySubscriptionInterest } from "@/lib/notifications";
 
 /**
  * Chatbot WhatsApp — state machine por conversa.
@@ -23,7 +24,8 @@ type ConversationStep =
   | "choose_slot"
   | "ask_name"
   | "my_appointments"
-  | "cancel_select";
+  | "cancel_select"
+  | "sub_club";
 
 interface ConversationState {
   step: ConversationStep;
@@ -293,6 +295,14 @@ export async function handleIncomingMessage(
     return handleCancelSelect(store, state, text);
   }
 
+  // ── Clube de assinatura ──
+  if (state.step === "sub_club") {
+    return handleSubClub(store, state, text);
+  }
+  if (/(assinar|assinatura|clube|plano mensal|mensalidade|ser membro|vip)/.test(lower)) {
+    return handleSubscriptionStart(store, state);
+  }
+
   // ── Modo IA: tenta resolver com linguagem natural ──
   if (isAiEnabled() && state.step === "menu") {
     const aiResult = await handleAiMessage(store, state, text);
@@ -378,6 +388,11 @@ async function handleAiMessage(
   // Cancelar agendamento
   if (parsed.intent === "cancelar") {
     return handleCancelStart(store, state);
+  }
+
+  // Clube de assinatura
+  if (parsed.intent === "assinar") {
+    return handleSubscriptionStart(store, state);
   }
 
   // Agendar — a parte inteligente
@@ -1113,6 +1128,83 @@ async function handleCancelSelect(
 
   return {
     reply: `Agendamento cancelado ✅\n\n📅 ${dt.toLocaleDateString("pt-BR")} às ${hora}\n✂️ ${appt.services.map((s) => s.service.name).join(", ")}\n💈 ${appt.barber.name}\n\nMande *oi* se quiser agendar novamente.`,
+    aiMessageCounted: true,
+  };
+}
+
+// ── Clube de assinatura ──────────────────────────
+
+async function handleSubscriptionStart(
+  store: { id: string; name: string },
+  state: ConversationState,
+): Promise<ChatbotResult> {
+  const plans = await prisma.subscriptionPlan.findMany({
+    where: { storeId: store.id, isActive: true },
+    include: { services: { include: { service: { select: { name: true } } } } },
+    orderBy: { priceInCents: "asc" },
+  });
+
+  if (plans.length === 0) {
+    await dropConv(state.storeId, state.phone);
+    return {
+      reply: "No momento não temos clube de assinatura por aqui 😅 Mas posso te ajudar a agendar um horário! É só mandar *oi*.",
+      aiMessageCounted: true,
+    };
+  }
+
+  const lista = plans
+    .map((p) => {
+      const usos = p.maxUsesPerMonth ? `${p.maxUsesPerMonth} usos/mês` : "uso ilimitado";
+      const inclui = p.services.map((s) => s.service.name).join(", ");
+      return `*${p.name}* — ${formatPrice(p.priceInCents / 100)}/mês\n  _${usos}${inclui ? ` · ${inclui}` : ""}_`;
+    })
+    .join("\n\n");
+
+  await saveConv({ ...state, step: "sub_club" });
+
+  return {
+    reply: `Que ótimo que quer fazer parte! 🌟 Nossos planos:\n\n${lista}\n\nQual deles te interessa? (me diz o nome do plano)`,
+    aiMessageCounted: true,
+  };
+}
+
+async function handleSubClub(
+  store: { id: string; name: string },
+  state: ConversationState,
+  text: string,
+): Promise<ChatbotResult> {
+  const plans = await prisma.subscriptionPlan.findMany({
+    where: { storeId: store.id, isActive: true },
+    orderBy: { priceInCents: "asc" },
+  });
+
+  const selected = pickByNumberOrName(text, plans);
+  if (!selected) {
+    const nomes = naturalJoin(plans.map((p) => p.name));
+    return { reply: `Não achei esse plano 😅 Temos: ${nomes}. Qual você quer?`, aiMessageCounted: true };
+  }
+
+  // Busca o nome do cliente (se já cadastrado) para a notificação
+  const phoneDigits = state.phone.replace(/\D/g, "");
+  const customer = await prisma.customer.findFirst({
+    where: { storeId: store.id, phone: phoneDigits },
+    select: { name: true },
+  });
+  const realName = customer?.name && !customer.name.startsWith("WhatsApp ") ? customer.name : null;
+
+  // Avisa o dono da loja por e-mail (best-effort, não bloqueia a resposta)
+  await notifySubscriptionInterest({
+    storeId: store.id,
+    customerName: realName,
+    customerPhone: phoneDigits,
+    planName: selected.name,
+    planPriceCents: selected.priceInCents,
+  }).catch(() => {});
+
+  await dropConv(state.storeId, state.phone);
+
+  return {
+    reply: `Show! 🎉 Anotei seu interesse no plano *${selected.name}* (${formatPrice(selected.priceInCents / 100)}/mês).\n\nA equipe da *${store.name}* vai te chamar pra combinar o pagamento e ativar sua assinatura. 😊\n\nEnquanto isso, posso te ajudar a agendar — é só mandar *oi*!`,
     aiMessageCounted: true,
   };
 }

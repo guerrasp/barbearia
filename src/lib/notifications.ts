@@ -122,6 +122,47 @@ export async function sendNewAppointmentToOwner(appointmentId: string) {
   return { sent: true as const, id: res.data?.id };
 }
 
+/**
+ * Notifica o dono da loja que um cliente demonstrou interesse no clube de
+ * assinatura pelo WhatsApp. O dono entra em contato para combinar pagamento
+ * e ativar a assinatura no painel.
+ */
+export async function notifySubscriptionInterest(args: {
+  storeId: string;
+  customerName: string | null;
+  customerPhone: string;
+  planName: string;
+  planPriceCents: number;
+}) {
+  if (!resend) return { skipped: "resend_not_configured" as const };
+  const store = await prisma.store.findUnique({
+    where: { id: args.storeId },
+    select: { name: true, email: true },
+  });
+  if (!store?.email) return { skipped: "no_store_email" as const };
+
+  const html = baseLayout(
+    "Interesse no clube de assinatura",
+    store.name,
+    `<p>Um cliente quer assinar o clube (veio pelo WhatsApp):</p>
+     <div style="background:#0B132B;border-radius:8px;padding:16px;margin:16px 0;">
+       <p style="margin:0;">📦 Plano: <strong>${args.planName}</strong></p>
+       <p style="margin:4px 0 0;color:#D4AF37;font-weight:bold;">${formatBRL(args.planPriceCents / 100)}/mês</p>
+       <p style="margin:12px 0 0;">👤 ${args.customerName || "Cliente novo"}</p>
+       <p style="margin:4px 0 0;font-size:13px;color:#94A3B8;">📱 ${args.customerPhone}</p>
+     </div>
+     <p style="color:#94A3B8;font-size:12px;">Entre em contato para combinar o pagamento e ativar a assinatura no seu painel (Clube → Inscrever Cliente).</p>`,
+  );
+
+  const res = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: store.email,
+    subject: `Interesse no clube — ${args.planName}`,
+    html,
+  });
+  return { sent: true as const, id: res.data?.id };
+}
+
 export async function sendAppointmentReminder(appointmentId: string) {
   if (!resend) return { skipped: "resend_not_configured" as const };
   const ap = await loadAppointment(appointmentId);
