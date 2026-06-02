@@ -160,7 +160,28 @@ async function startSession(storeId) {
         msg.message.extendedTextMessage?.text ||
         "";
 
-      if (!text.trim() || !phone) continue;
+      if (!phone) continue;
+
+      // Mensagem sem texto (áudio, imagem, figurinha, vídeo, documento):
+      // responde educadamente em vez de ignorar silenciosamente.
+      if (!text.trim()) {
+        const isMedia =
+          msg.message.audioMessage || msg.message.imageMessage ||
+          msg.message.videoMessage || msg.message.stickerMessage ||
+          msg.message.documentMessage || msg.message.pttMessage;
+        if (isMedia) {
+          const mid = msg.key.id;
+          if (mid && processedMsgIds.has(mid)) continue;
+          if (mid) processedMsgIds.set(mid, Date.now());
+          try {
+            const jid = phone.includes("@") ? phone : phone.replace(/\D/g, "") + "@s.whatsapp.net";
+            await sock.sendMessage(jid, {
+              text: "Por enquanto eu entendo apenas mensagens de *texto* 🙏\nMe escreve o que você precisa (ex: \"quero agendar um corte amanhã\").",
+            });
+          } catch {}
+        }
+        continue;
+      }
 
       // Dedup: ignora a mesma mensagem entregue mais de uma vez (@lid + número)
       const msgId = msg.key.id;

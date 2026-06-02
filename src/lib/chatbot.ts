@@ -152,8 +152,9 @@ function pickByNumberOrName<T extends { name: string }>(text: string, items: T[]
 }
 
 /** Detecta perguntas frequentes (FAQ) para responder sem perder o fluxo. */
-function detectFaq(lower: string): "address" | "contact" | null {
+function detectFaq(lower: string): "address" | "contact" | "hours" | null {
   if (/(endere|onde fica|onde é|onde e|localiza|como cheg|fica onde)/.test(lower)) return "address";
+  if (/(funcionamento|que horas|hor[áa]rio de|abre|fecha|aberto)/.test(lower)) return "hours";
   if (/(telefone|contato|whats|qual.*n[uú]mero)/.test(lower)) return "contact";
   return null;
 }
@@ -212,6 +213,14 @@ export async function handleIncomingMessage(
       : "Você já está falando com a gente por aqui! 😊";
     return {
       reply: inFlow ? `${ph}\n\n_Pode continuar de onde parou. 😉_` : ph,
+      aiMessageCounted: true,
+    };
+  }
+  if (faq === "hours") {
+    const inFlow = state.step !== "menu";
+    const msg = "Nossos horários variam por barbeiro e por dia 😊\nMe diz o dia que você quer que eu mostro os horários livres na hora!";
+    return {
+      reply: inFlow ? `${msg}\n\n_Pode continuar de onde parou._` : `${msg}\n\nMande *oi* para agendar.`,
       aiMessageCounted: true,
     };
   }
@@ -660,6 +669,34 @@ async function handleChooseDate(
 ): Promise<ChatbotResult> {
   const dateStr = parseDateInput(text);
   if (!dateStr) {
+    // Não é uma data — ajuda listando os próximos dias com vaga do barbeiro
+    if (state.barberId && state.serviceIds?.length) {
+      const svc = await prisma.service.findUnique({
+        where: { id: state.serviceIds[0] },
+        select: { durationMinutes: true },
+      });
+      const dur = svc?.durationMinutes || 30;
+      const wd = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+      const base = new Date();
+      const dias: string[] = [];
+      for (let i = 0; i < 14 && dias.length < 6; i++) {
+        const dd = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+        const slots = await getAvailableSlots({ barberId: state.barberId, date: dd, durationMinutes: dur, stepMinutes: 30 });
+        if (slots.length > 0) {
+          const label =
+            i === 0 ? "hoje" :
+            i === 1 ? "amanhã" :
+            `${wd[dd.getDay()]} ${dd.getDate().toString().padStart(2, "0")}/${(dd.getMonth() + 1).toString().padStart(2, "0")}`;
+          dias.push(label);
+        }
+      }
+      if (dias.length > 0) {
+        return {
+          reply: `*${state.barberName}* tem vaga nesses dias:\n\n${dias.map((d) => `• ${d}`).join("\n")}\n\nQual você prefere? (ou digite uma data como _15/06_)`,
+          aiMessageCounted: true,
+        };
+      }
+    }
     return { reply: `Não entendi a data. Tente: _hoje_, _amanhã_, _segunda_, ou _15/06_.`, aiMessageCounted: true };
   }
 
