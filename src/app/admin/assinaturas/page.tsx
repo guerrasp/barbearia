@@ -74,8 +74,9 @@ export default function AssinaturasPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal criar plano
+  // Modal criar/editar plano
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [planName, setPlanName] = useState("");
   const [planDesc, setPlanDesc] = useState("");
   const [planPrice, setPlanPrice] = useState("");
@@ -112,27 +113,48 @@ export default function AssinaturasPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleCreatePlan = async () => {
+  const openPlanModal = (plan?: SubPlan) => {
+    if (plan) {
+      setEditingPlanId(plan.id);
+      setPlanName(plan.name);
+      setPlanDesc(plan.description || "");
+      setPlanPrice((plan.priceInCents / 100).toFixed(2).replace(".", ","));
+      setPlanMaxUses(plan.maxUsesPerMonth ? String(plan.maxUsesPerMonth) : "");
+      setPlanServiceIds(plan.services.map((s) => s.service.id));
+    } else {
+      setEditingPlanId(null);
+      setPlanName(""); setPlanDesc(""); setPlanPrice(""); setPlanMaxUses(""); setPlanServiceIds([]);
+    }
+    setShowPlanModal(true);
+  };
+
+  const handleSavePlan = async () => {
     if (!store || !planName || !planPrice || planServiceIds.length === 0) {
       toast.error("Preencha nome, preço e selecione ao menos 1 serviço");
       return;
     }
     setPlanSaving(true);
+    const payload = {
+      name: planName,
+      description: planDesc || undefined,
+      priceInCents: Math.round(parseFloat(planPrice.replace(",", ".")) * 100),
+      maxUsesPerMonth: planMaxUses ? parseInt(planMaxUses) : null,
+      serviceIds: planServiceIds,
+    };
     try {
-      await api.post("/subscription-plans", {
-        name: planName,
-        description: planDesc || undefined,
-        priceInCents: Math.round(parseFloat(planPrice.replace(",", ".")) * 100),
-        maxUsesPerMonth: planMaxUses ? parseInt(planMaxUses) : null,
-        serviceIds: planServiceIds,
-        storeId: store.id,
-      });
-      toast.success("Plano criado!");
+      if (editingPlanId) {
+        await api.put(`/subscription-plans/${editingPlanId}`, payload);
+        toast.success("Plano atualizado!");
+      } else {
+        await api.post("/subscription-plans", { ...payload, storeId: store.id });
+        toast.success("Plano criado!");
+      }
       setShowPlanModal(false);
+      setEditingPlanId(null);
       setPlanName(""); setPlanDesc(""); setPlanPrice(""); setPlanMaxUses(""); setPlanServiceIds([]);
       fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao criar plano");
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar plano");
     } finally {
       setPlanSaving(false);
     }
@@ -206,7 +228,7 @@ export default function AssinaturasPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setShowPlanModal(true)}>
+          <Button variant="secondary" onClick={() => openPlanModal()}>
             <Package className="w-4 h-4" /> Novo Plano
           </Button>
           <Button onClick={() => setShowSubModal(true)} disabled={plans.filter((p) => p.isActive).length === 0}>
@@ -272,12 +294,20 @@ export default function AssinaturasPage() {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => handleTogglePlan(p.id, p.isActive)}
-                  className="mt-4 text-xs text-muted hover:text-foreground transition-colors"
-                >
-                  {p.isActive ? "Desativar plano" : "Reativar plano"}
-                </button>
+                <div className="mt-4 flex items-center gap-4">
+                  <button
+                    onClick={() => openPlanModal(p)}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleTogglePlan(p.id, p.isActive)}
+                    className="text-xs text-muted hover:text-foreground transition-colors"
+                  >
+                    {p.isActive ? "Desativar plano" : "Reativar plano"}
+                  </button>
+                </div>
               </Card>
             ))
           )}
@@ -336,7 +366,7 @@ export default function AssinaturasPage() {
       )}
 
       {/* Modal: Criar plano */}
-      <Modal isOpen={showPlanModal} onClose={() => setShowPlanModal(false)} title="Novo Plano de Assinatura" size="lg">
+      <Modal isOpen={showPlanModal} onClose={() => setShowPlanModal(false)} title={editingPlanId ? "Editar Plano" : "Novo Plano de Assinatura"} size="lg">
         <div className="space-y-4">
           <Input label="Nome do plano *" placeholder="Ex: Corte Ilimitado" value={planName} onChange={(e) => setPlanName(e.target.value)} />
           <Input label="Descrição" placeholder="Ex: 4 cortes por mês com 20% de desconto" value={planDesc} onChange={(e) => setPlanDesc(e.target.value)} />
@@ -364,8 +394,8 @@ export default function AssinaturasPage() {
             </div>
           </div>
           <div className="flex gap-3 pt-4 border-t border-border">
-            <Button onClick={handleCreatePlan} isLoading={planSaving} className="flex-1">
-              <Check className="w-4 h-4" /> Criar Plano
+            <Button onClick={handleSavePlan} isLoading={planSaving} className="flex-1">
+              <Check className="w-4 h-4" /> {editingPlanId ? "Salvar Alterações" : "Criar Plano"}
             </Button>
             <Button variant="secondary" onClick={() => setShowPlanModal(false)}>Cancelar</Button>
           </div>
