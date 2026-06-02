@@ -17,6 +17,9 @@ const onboardingSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   phone: z.string().optional(),
+  // Plano escolhido no site. O trial de 14 dias dá acesso aos recursos
+  // DESTE plano (modelo "experimente o plano cheio").
+  plan: z.enum(["FREE", "PRO", "BUSINESS", "KORTA_IA"]).optional().default("FREE"),
 });
 
 const DEFAULT_SERVICES = [
@@ -73,6 +76,7 @@ export async function POST(req: NextRequest) {
           slug: data.slug,
           email: data.email,
           phone: data.phone || null,
+          plan: data.plan,
           trialEndsAt: computeTrialDeadline(),
         },
       });

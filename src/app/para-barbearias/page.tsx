@@ -32,7 +32,7 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     name: "Pioneiro",
-    badge: "14 dias grátis",
+    badge: "Mais acessível",
     price: "R$ 39,90",
     priceSuffix: "/mês",
     description: "Para começar agora — sem cartão nos 14 dias de teste.",
@@ -281,6 +281,9 @@ function PlanCard({ plan }: { plan: Plan }) {
           <span className="text-sm text-korta-muted">{plan.priceSuffix}</span>
         )}
       </div>
+      <p className="mt-1.5 text-xs text-korta-gold flex items-center gap-1">
+        <Check className="w-3.5 h-3.5" /> 14 dias grátis · sem cartão
+      </p>
 
       <Link
         href={plan.cta.href}

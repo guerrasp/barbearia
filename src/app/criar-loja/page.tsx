@@ -41,11 +41,28 @@ function slugify(s: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+type PlanKey = "FREE" | "PRO" | "BUSINESS" | "KORTA_IA";
+const PLAN_LABELS: Record<PlanKey, string> = {
+  FREE: "Pioneiro",
+  PRO: "Pro",
+  BUSINESS: "Business",
+  KORTA_IA: "Korta IA",
+};
+
 export default function CriarLojaPage() {
   const { login } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ slug: string; storeName: string } | null>(null);
+
+  // Plano escolhido no site (via ?plan=). Default Pioneiro.
+  const [plan, setPlan] = useState<PlanKey>("FREE");
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("plan")?.toUpperCase();
+    if (p === "PRO" || p === "BUSINESS" || p === "KORTA_IA" || p === "FREE") {
+      setPlan(p);
+    }
+  }, []);
 
   // Step 1: Loja
   const [storeName, setStoreName] = useState("");
@@ -118,6 +135,7 @@ export default function CriarLojaPage() {
           email: email.trim(),
           password,
           phone: storePhone || undefined,
+          plan,
         },
       );
       // Auto-login: já gravou no Supabase, faz login imediato pra evitar
@@ -186,6 +204,12 @@ export default function CriarLojaPage() {
             <p className="text-korta-muted mt-2">
               Em 2 passos sua barbearia está online recebendo agendamentos.
             </p>
+            <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-korta-gold/10 border border-korta-gold/20">
+              <Check className="w-3.5 h-3.5 text-korta-gold" />
+              <span className="text-xs font-medium text-korta-text">
+                Plano <strong className="text-korta-gold">{PLAN_LABELS[plan]}</strong> · 14 dias grátis, sem cartão
+              </span>
+            </div>
           </div>
         )}
 
@@ -397,7 +421,7 @@ export default function CriarLojaPage() {
                 </Link>
               </div>
               <p className="text-xs text-korta-muted mt-4">
-                Você já está logado e tem 14 dias de avaliação grátis.
+                Você já está logado e tem <strong className="text-korta-text">14 dias grátis</strong> do plano <strong className="text-korta-text">{PLAN_LABELS[plan]}</strong> (sem cartão).
               </p>
             </div>
           )}
