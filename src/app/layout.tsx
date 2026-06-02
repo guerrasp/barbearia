@@ -22,6 +22,28 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Korta",
   },
+  openGraph: {
+    title: "Korta — Agendamento para barbearias",
+    description: "Seu horário na barbearia em poucos toques. Sem ligação, sem fila.",
+    url: "https://korta.vercel.app",
+    siteName: "Korta",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1500,
+        height: 500,
+        alt: "Korta — Agendamento para barbearias",
+      },
+    ],
+    locale: "pt_BR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Korta — Agendamento para barbearias",
+    description: "Seu horário na barbearia em poucos toques. Sem ligação, sem fila.",
+    images: ["/og-image.png"],
+  },
 };
 
 export const viewport: Viewport = {

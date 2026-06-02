@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
+const WHATSAPP_SERVER = process.env.WHATSAPP_SERVER_URL || "";
+const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || "";
+
 function formatDateBR(d: Date) {
   return d.toLocaleString("pt-BR", {
     weekday: "long",
@@ -10,11 +13,20 @@ function formatDateBR(d: Date) {
   });
 }
 
+function ensureBrazilCode(raw: string) {
+  const digits = raw.replace(/\D/g, "");
+  return digits.startsWith("55") ? digits : "55" + digits;
+}
+
+function mapsLink(address: string) {
+  return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+}
+
 async function loadAppointment(appointmentId: string) {
   return prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: {
-      store: { select: { name: true, phone: true, address: true } },
+      store: { select: { id: true, name: true, phone: true, address: true } },
       customer: { select: { name: true, phone: true } },
       barber: { select: { name: true } },
       services: { include: { service: { select: { name: true } } } },
@@ -23,20 +35,52 @@ async function loadAppointment(appointmentId: string) {
 }
 
 /**
- * Envia confirmação de agendamento via WhatsApp através do webhook n8n
- * que integra com Evolution API.
- *
- * Não bloqueia a criação do agendamento — chamar com .catch() do lado
- * de quem invoca.
+ * Envia mensagem via servidor WhatsApp multi-sessão.
+ * Rota: POST /send/:storeId
+ */
+async function sendViaWhatsApp(storeId: string, phone: string, text: string) {
+  if (!WHATSAPP_SERVER) {
+    console.log("⚠️ WHATSAPP_SERVER_URL não configurada");
+    return { skipped: "server_not_configured" as const };
+  }
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (WHATSAPP_API_KEY) headers["X-API-Key"] = WHATSAPP_API_KEY;
+
+  const url = `${WHATSAPP_SERVER}/send/${storeId}`;
+  console.log(`📱 Enviando WhatsApp para ${phone} via ${url}`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ phone, text }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`❌ WhatsApp erro (${response.status}):`, body);
+    return { sent: false as const, error: response.statusText };
+  }
+
+  console.log("✅ WhatsApp enviado com sucesso");
+  return { sent: true as const };
+}
+
+/**
+ * Envia confirmação de agendamento via WhatsApp da própria loja.
  */
 export async function sendWhatsAppConfirmation(appointmentId: string) {
-  const webhookUrl = process.env.N8N_WHATSAPP_WEBHOOK_URL;
-  if (!webhookUrl) return { skipped: "webhook_not_configured" as const };
-
   const ap = await loadAppointment(appointmentId);
-  if (!ap || !ap.customer.phone) return { skipped: "no_phone" as const };
+  if (!ap || !ap.customer.phone) {
+    console.log("⚠️ Agendamento ou telefone não encontrados");
+    return { skipped: "no_phone" as const };
+  }
 
   const servicesList = ap.services.map((s) => s.service.name).join(", ");
+
+  const locationLine = ap.store.address
+    ? `\n📍 ${ap.store.address}\n${mapsLink(ap.store.address)}`
+    : "";
 
   const message = `*Agendamento Confirmado!* ✅
 
@@ -45,45 +89,26 @@ Olá ${ap.customer.name}, seu horário está reservado na *${ap.store.name}*.
 📅 ${formatDateBR(ap.startAt)}
 💈 Barbeiro: ${ap.barber.name}
 ✂️ Serviços: ${servicesList}
-🔐 Código: ${ap.code}
+🔐 Código: ${ap.code}${locationLine}
 
 Para cancelar ou remarcar, entre em contato${ap.store.phone ? ` pelo ${ap.store.phone}` : ""}.
 
 Nos vemos em breve!`;
 
-  try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        phone: ap.customer.phone.replace(/\D/g, ""), // Remove non-digits
-        text: message,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("Erro ao enviar WhatsApp:", response.statusText);
-      return { sent: false as const, error: response.statusText };
-    }
-
-    return { sent: true as const };
-  } catch (error) {
-    console.error("Erro ao chamar webhook WhatsApp:", error);
-    return { sent: false as const, error: error instanceof Error ? error.message : "Unknown error" };
-  }
+  const phone = ensureBrazilCode(ap.customer.phone);
+  return sendViaWhatsApp(ap.store.id, phone, message);
 }
 
 /**
  * Envia lembrete de agendamento 24h antes via WhatsApp
  */
 export async function sendWhatsAppReminder(appointmentId: string) {
-  const webhookUrl = process.env.N8N_WHATSAPP_WEBHOOK_URL;
-  if (!webhookUrl) return { skipped: "webhook_not_configured" as const };
-
   const ap = await loadAppointment(appointmentId);
   if (!ap || !ap.customer.phone) return { skipped: "no_phone" as const };
+
+  const locationLine = ap.store.address
+    ? `\n📍 ${ap.store.address}\n${mapsLink(ap.store.address)}`
+    : "";
 
   const message = `*Lembrete: Seu agendamento é amanhã!* 🔔
 
@@ -91,30 +116,10 @@ Olá ${ap.customer.name},
 
 📅 ${formatDateBR(ap.startAt)}
 💈 Barbeiro: ${ap.barber.name}
-🔐 Código: ${ap.code}
+🔐 Código: ${ap.code}${locationLine}
 
-Nos vemos em breve!${ap.store.address ? ` ${ap.store.address}` : ""}`;
+Nos vemos em breve!`;
 
-  try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        phone: ap.customer.phone.replace(/\D/g, ""),
-        text: message,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("Erro ao enviar lembrete WhatsApp:", response.statusText);
-      return { sent: false as const, error: response.statusText };
-    }
-
-    return { sent: true as const };
-  } catch (error) {
-    console.error("Erro ao chamar webhook WhatsApp (reminder):", error);
-    return { sent: false as const, error: error instanceof Error ? error.message : "Unknown error" };
-  }
+  const phone = ensureBrazilCode(ap.customer.phone);
+  return sendViaWhatsApp(ap.store.id, phone, message);
 }

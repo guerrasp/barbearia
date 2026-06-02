@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     barberId,
     date,
     durationMinutes,
-    stepMinutes: stepParam ? Number(stepParam) : 15,
+    stepMinutes: stepParam ? Number(stepParam) : 30,
   });
 
   return NextResponse.json({ date: dateStr, durationMinutes, slots });
