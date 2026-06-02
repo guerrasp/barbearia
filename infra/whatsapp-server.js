@@ -124,9 +124,25 @@ async function startSession(storeId) {
       // Ignora mensagens enviadas pelo próprio bot, status e grupos
       if (msg.key.fromMe) continue;
       if (!msg.message) continue;
-      if (msg.key.remoteJid?.endsWith("@g.us")) continue; // grupo
+      const rawJid = msg.key.remoteJid || "";
+      if (rawJid.endsWith("@g.us")) continue; // grupo
+      if (rawJid === "status@broadcast") continue; // status/stories
 
-      const phone = msg.key.remoteJid?.replace("@s.whatsapp.net", "") || "";
+      // Resolve um identificador ESTÁVEL do contato.
+      // O WhatsApp novo usa "@lid" (privacy id) e o número (@s.whatsapp.net)
+      // de forma intercambiável. Preferimos sempre o número de telefone real,
+      // que o Baileys expõe em remoteJidAlt / senderPn, para não criar duas
+      // conversas distintas para a mesma pessoa.
+      const pnJid = msg.key.remoteJidAlt || msg.key.senderPn || "";
+      let phone;
+      if (pnJid && pnJid.includes("@s.whatsapp.net")) {
+        phone = pnJid.replace("@s.whatsapp.net", "");
+      } else if (rawJid.endsWith("@s.whatsapp.net")) {
+        phone = rawJid.replace("@s.whatsapp.net", "");
+      } else {
+        phone = rawJid; // só temos o @lid — usa como chave estável
+      }
+
       const text =
         msg.message.conversation ||
         msg.message.extendedTextMessage?.text ||
@@ -134,7 +150,8 @@ async function startSession(storeId) {
 
       if (!text.trim() || !phone) continue;
 
-      console.log(`[${storeId}] Msg recebida de ${phone}: ${text.substring(0, 80)}`);
+      // Log da estrutura da key para diagnóstico do LID
+      console.log(`[${storeId}] key=${JSON.stringify(msg.key)} -> phone=${phone} | "${text.substring(0, 60)}"`);
 
       // Encaminha para o webhook do Next.js (fire-and-forget)
       if (CHATBOT_WEBHOOK) {
@@ -305,7 +322,7 @@ const server = http.createServer(async (req, res) => {
       const { phone, text } = body;
       if (!phone || !text) return json(res, 400, { error: "phone e text obrigatórios" });
 
-      const jid = phone.replace(/\D/g, "") + "@s.whatsapp.net";
+      const jid = phone.includes("@") ? phone : phone.replace(/\D/g, "") + "@s.whatsapp.net";
       await session.sock.sendMessage(jid, { text });
       console.log(`[${storeId}] Mensagem enviada para ${jid}`);
       return json(res, 200, { success: true, to: jid });
@@ -325,7 +342,7 @@ const server = http.createServer(async (req, res) => {
       const { phone, text } = body;
       if (!phone || !text) return json(res, 400, { error: "phone e text obrigatórios" });
 
-      const jid = phone.replace(/\D/g, "") + "@s.whatsapp.net";
+      const jid = phone.includes("@") ? phone : phone.replace(/\D/g, "") + "@s.whatsapp.net";
       await firstConnected[1].sock.sendMessage(jid, { text });
       console.log(`[${firstConnected[0]}] Mensagem enviada para ${jid} (legado)`);
       return json(res, 200, { success: true, to: jid });
