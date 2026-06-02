@@ -37,6 +37,18 @@ if (!API_KEY) {
 // sessions[storeId] = { sock, qr, connected, phone, connecting }
 const sessions = {};
 
+// ── Dedup de mensagens ────────────────────────────────────────
+// O WhatsApp pode entregar a mesma mensagem mais de uma vez (ex: sob
+// o identificador @lid e sob o número). Guardamos os IDs já processados
+// por alguns minutos para não responder duas vezes.
+const processedMsgIds = new Map(); // msgId -> timestamp
+setInterval(() => {
+  const cutoff = Date.now() - 5 * 60_000;
+  for (const [id, t] of processedMsgIds) {
+    if (t < cutoff) processedMsgIds.delete(id);
+  }
+}, 60_000).unref();
+
 function getSession(storeId) {
   return sessions[storeId] || null;
 }
@@ -149,6 +161,16 @@ async function startSession(storeId) {
         "";
 
       if (!text.trim() || !phone) continue;
+
+      // Dedup: ignora a mesma mensagem entregue mais de uma vez (@lid + número)
+      const msgId = msg.key.id;
+      if (msgId) {
+        if (processedMsgIds.has(msgId)) {
+          console.log(`[${storeId}] msg duplicada ignorada (id=${msgId})`);
+          continue;
+        }
+        processedMsgIds.set(msgId, Date.now());
+      }
 
       // Log da estrutura da key para diagnóstico do LID
       console.log(`[${storeId}] key=${JSON.stringify(msg.key)} -> phone=${phone} | "${text.substring(0, 60)}"`);
