@@ -137,6 +137,27 @@ function toDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Seleciona um item por número (1-based) OU por nome (fuzzy). */
+function pickByNumberOrName<T extends { name: string }>(text: string, items: T[]): T | null {
+  const t = text.trim();
+  const n = parseInt(t);
+  if (!isNaN(n) && n >= 1 && n <= items.length) return items[n - 1];
+  const lower = t.toLowerCase();
+  if (lower.length < 2) return null;
+  return (
+    items.find((it) => it.name.toLowerCase().includes(lower)) ||
+    items.find((it) => lower.includes(it.name.toLowerCase())) ||
+    null
+  );
+}
+
+/** Detecta perguntas frequentes (FAQ) para responder sem perder o fluxo. */
+function detectFaq(lower: string): "address" | "contact" | null {
+  if (/(endere|onde fica|onde é|onde e|localiza|como cheg|fica onde)/.test(lower)) return "address";
+  if (/(telefone|contato|whats|qual.*n[uú]mero)/.test(lower)) return "contact";
+  return null;
+}
+
 // ── Main handler ─────────────────────────────────
 export interface ChatbotResult {
   reply: string;
@@ -151,7 +172,7 @@ export async function handleIncomingMessage(
   // Carrega dados da loja
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    select: { id: true, name: true, slug: true, plan: true },
+    select: { id: true, name: true, slug: true, plan: true, address: true, phone: true },
   });
 
   if (!store) {
@@ -171,6 +192,29 @@ export async function handleIncomingMessage(
   }
 
   const state = await loadConv(storeId, phone);
+
+  // ── FAQ: responde perguntas comuns sem perder o passo atual ──
+  const faq = detectFaq(lower);
+  if (faq === "address") {
+    const inFlow = state.step !== "menu";
+    const addr = store.address
+      ? `📍 Nosso endereço:\n${store.address}\nhttps://maps.google.com/?q=${encodeURIComponent(store.address)}`
+      : "Ainda não temos endereço cadastrado aqui. Me chama que te passo!";
+    return {
+      reply: inFlow ? `${addr}\n\n_Pode continuar de onde parou. 😉_` : addr,
+      aiMessageCounted: true,
+    };
+  }
+  if (faq === "contact") {
+    const inFlow = state.step !== "menu";
+    const ph = store.phone
+      ? `📞 Contato: ${store.phone}`
+      : "Você já está falando com a gente por aqui! 😊";
+    return {
+      reply: inFlow ? `${ph}\n\n_Pode continuar de onde parou. 😉_` : ph,
+      aiMessageCounted: true,
+    };
+  }
 
   // ── Comando global: cancelar agendamento ──
   if (lower === "cancelar" || lower === "desmarcar") {
@@ -546,12 +590,10 @@ async function handleChooseService(
     orderBy: { name: "asc" },
   });
 
-  const choice = parseInt(text.trim());
-  if (isNaN(choice) || choice < 1 || choice > services.length) {
-    return { reply: `Opção inválida. Digite um número de 1 a ${services.length}, ou "0" para voltar.`, aiMessageCounted: true };
+  const selected = pickByNumberOrName(text, services);
+  if (!selected) {
+    return { reply: `Não encontrei esse serviço. Digite o número (1 a ${services.length}) ou o nome, ou "0" para voltar.`, aiMessageCounted: true };
   }
-
-  const selected = services[choice - 1];
 
   // Carrega barbeiros
   const barbers = await prisma.barber.findMany({
@@ -593,12 +635,10 @@ async function handleChooseBarber(
     orderBy: { name: "asc" },
   });
 
-  const choice = parseInt(text.trim());
-  if (isNaN(choice) || choice < 1 || choice > barbers.length) {
-    return { reply: `Opção inválida. Digite um número de 1 a ${barbers.length}, ou "0" para voltar.`, aiMessageCounted: true };
+  const selected = pickByNumberOrName(text, barbers);
+  if (!selected) {
+    return { reply: `Não encontrei esse barbeiro. Digite o número (1 a ${barbers.length}) ou o nome, ou "0" para voltar.`, aiMessageCounted: true };
   }
-
-  const selected = barbers[choice - 1];
 
   await saveConv({
     ...state,
