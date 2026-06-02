@@ -78,14 +78,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {menuItems.filter((item) => user && item.roles.includes(user.role)).map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/admin" &&
-                item.href !== "/admin/configuracoes" &&
-                pathname.startsWith(item.href)) ||
-              (item.href === "/admin/configuracoes" &&
-                pathname === "/admin/configuracoes");
+          {(() => {
+            const visible = menuItems.filter((item) => user && item.roles.includes(user.role));
+            // Item ativo = o de caminho mais específico (mais longo) que casa
+            // com a URL atual. Evita que "/admin/agenda" acenda em
+            // "/admin/agendamentos" (prefixo) e que pai+filho acendam juntos.
+            const activeHref = visible
+              .map((i) => i.href)
+              .filter((href) => pathname === href || pathname.startsWith(href + "/"))
+              .sort((a, b) => b.length - a.length)[0];
+            return visible.map((item) => {
+            const isActive = item.href === activeHref;
             return (
               <Link
                 key={item.href}
@@ -102,7 +105,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {item.label}
               </Link>
             );
-          })}
+            });
+          })()}
         </nav>
 
         <div className="p-3 border-t border-white/5">
