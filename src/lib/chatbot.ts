@@ -21,6 +21,7 @@ type ConversationStep =
   | "choose_barber"
   | "choose_date"
   | "choose_slot"
+  | "ask_name"
   | "my_appointments"
   | "cancel_select";
 
@@ -34,6 +35,7 @@ interface ConversationState {
   barberName?: string;
   date?: string; // YYYY-MM-DD
   slots?: string[]; // HH:mm[]
+  pendingSlot?: string; // horário escolhido aguardando o nome do cliente
   cancelIds?: string[]; // ids de agendamentos oferecidos para cancelar
   updatedAt: number;
 }
@@ -58,6 +60,7 @@ async function loadConv(storeId: string, phone: string): Promise<ConversationSta
     barberName: data.barberName,
     date: data.date,
     slots: data.slots,
+    pendingSlot: data.pendingSlot,
     cancelIds: data.cancelIds,
     updatedAt: row.updatedAt.getTime(),
   };
@@ -72,6 +75,7 @@ async function saveConv(state: ConversationState) {
     barberName: state.barberName ?? null,
     date: state.date ?? null,
     slots: state.slots ?? null,
+    pendingSlot: state.pendingSlot ?? null,
     cancelIds: state.cancelIds ?? null,
   };
   await prisma.chatbotConversation.upsert({
@@ -307,6 +311,8 @@ export async function handleIncomingMessage(
       return handleChooseDate(store, state, text);
     case "choose_slot":
       return handleChooseSlot(store, state, text);
+    case "ask_name":
+      return handleAskName(store, state, text);
     case "my_appointments":
       return handleMyAppointments(store, state, text);
     default:
@@ -551,7 +557,8 @@ function normalizeTime(raw: string): string | null {
   return null;
 }
 
-/** Finaliza o agendamento (usado tanto pelo fluxo IA quanto menu) */
+/** Finaliza o agendamento da rota IA — delega para finalizeBooking, que
+ *  pergunta o nome se for cliente novo e confirma. */
 async function finishBooking(
   store: { id: string; name: string; slug: string },
   state: ConversationState,
@@ -560,45 +567,7 @@ async function finishBooking(
   dateStr: string,
   slot: string,
 ): Promise<ChatbotResult> {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const [h, min] = slot.split(":").map(Number);
-  const startAt = new Date(y, m - 1, d, h, min, 0, 0);
-  const endAt = new Date(startAt.getTime() + service.durationMinutes * 60_000);
-
-  const issue = await checkAvailability({ barberId: barber.id, startAt, endAt });
-  if (issue) {
-    return { reply: `Esse horário acabou de ser ocupado 😕\nTente outro horário ou mande "oi" para recomeçar.`, aiMessageCounted: true };
-  }
-
-  const phoneDigits = state.phone.replace(/\D/g, "");
-  let customer = await prisma.customer.findFirst({
-    where: { storeId: state.storeId, phone: phoneDigits },
-  });
-  if (!customer) {
-    customer = await prisma.customer.create({
-      data: { storeId: state.storeId, name: `WhatsApp ${phoneDigits.slice(-4)}`, phone: phoneDigits },
-    });
-  }
-
-  const code = await generateAppointmentCode(state.storeId, startAt);
-  await prisma.appointment.create({
-    data: {
-      code, storeId: state.storeId, customerId: customer.id, barberId: barber.id,
-      startAt, endAt, status: "SCHEDULED", source: "PUBLIC", total: service.price, discount: 0,
-      services: { create: [{ serviceId: service.id, price: service.price, durationMinutes: service.durationMinutes }] },
-    },
-  });
-
-  await dropConv(state.storeId, state.phone);
-
-  const dateFormatted = startAt.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
-
-  const reply = await generateReply(
-    `Confirme o agendamento de forma simpática. Dados: ${service.name} com ${barber.name}, ${dateFormatted} às ${slot}, ${formatPrice(service.price)}, código ${code}. Diga que para cancelar é só mandar "cancelar" e para novo agendamento mandar "oi".`,
-    { storeName: store.name },
-  );
-
-  return { reply, aiMessageCounted: true };
+  return finalizeBooking(store, state, service, barber.id, barber.name, dateStr, slot);
 }
 
 // ── Step handlers (menu numerado — fallback) ─────
@@ -829,10 +798,6 @@ async function handleChooseSlot(
     };
   }
 
-  const [y, m, d] = state.date.split("-").map(Number);
-  const [h, min] = selectedSlot.split(":").map(Number);
-  const startAt = new Date(y, m - 1, d, h, min, 0, 0);
-
   // Busca serviço para duração e preço
   const service = await prisma.service.findUnique({
     where: { id: state.serviceIds[0] },
@@ -844,38 +809,81 @@ async function handleChooseSlot(
     return { reply: "Serviço não encontrado. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
+  return finalizeBooking(store, state, service, state.barberId, state.barberName || "", state.date, selectedSlot);
+}
+
+// ── Finalização do agendamento (centralizada) ─────
+// Verifica disponibilidade; se for cliente novo (sem nome real), pergunta o
+// nome antes de confirmar; senão, agenda direto.
+
+interface BookingService {
+  id: string;
+  name: string;
+  price: number;
+  durationMinutes: number;
+}
+
+async function finalizeBooking(
+  store: { id: string; name: string; slug: string },
+  state: ConversationState,
+  service: BookingService,
+  barberId: string,
+  barberName: string,
+  dateStr: string,
+  slot: string,
+): Promise<ChatbotResult> {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [h, min] = slot.split(":").map(Number);
+  const startAt = new Date(y, m - 1, d, h, min, 0, 0);
   const endAt = new Date(startAt.getTime() + service.durationMinutes * 60_000);
 
-  // Verificar disponibilidade (pode ter mudado)
-  const issue = await checkAvailability({ barberId: state.barberId, startAt, endAt });
+  const issue = await checkAvailability({ barberId, startAt, endAt });
   if (issue) {
-    return { reply: `Esse horário acabou de ser ocupado 😕\n\nTente outro horário ou mande "0" para voltar.`, aiMessageCounted: true };
+    return { reply: `Esse horário acabou de ser ocupado 😕 Quer tentar outro?`, aiMessageCounted: true };
   }
 
-  // Upsert customer
   const phoneDigits = state.phone.replace(/\D/g, "");
-  let customer = await prisma.customer.findFirst({
-    where: { storeId: state.storeId, phone: phoneDigits },
+  const customer = await prisma.customer.findFirst({
+    where: { storeId: store.id, phone: phoneDigits },
   });
-  if (!customer) {
-    customer = await prisma.customer.create({
-      data: {
-        storeId: state.storeId,
-        name: `WhatsApp ${phoneDigits.slice(-4)}`,
-        phone: phoneDigits,
-      },
+  const hasRealName = customer && customer.name && !customer.name.startsWith("WhatsApp ");
+
+  // Cliente novo (ou sem nome): pergunta o nome antes de confirmar
+  if (!hasRealName) {
+    await saveConv({
+      ...state,
+      step: "ask_name",
+      serviceIds: [service.id],
+      serviceName: service.name,
+      barberId,
+      barberName,
+      date: dateStr,
+      pendingSlot: slot,
     });
+    return { reply: "Boa! 🙌 Pra finalizar, como é o seu nome?", aiMessageCounted: true };
   }
 
-  // Criar agendamento dentro de transação
-  const code = await generateAppointmentCode(state.storeId, startAt);
+  return commitBooking(store, state, service, barberId, barberName, customer!.id, startAt, endAt, slot);
+}
 
+async function commitBooking(
+  store: { id: string; name: string; slug: string },
+  state: ConversationState,
+  service: BookingService,
+  barberId: string,
+  barberName: string,
+  customerId: string,
+  startAt: Date,
+  endAt: Date,
+  slot: string,
+): Promise<ChatbotResult> {
+  const code = await generateAppointmentCode(store.id, startAt);
   const appointment = await prisma.appointment.create({
     data: {
       code,
-      storeId: state.storeId,
-      customerId: customer.id,
-      barberId: state.barberId,
+      storeId: store.id,
+      customerId,
+      barberId,
       startAt,
       endAt,
       status: "SCHEDULED",
@@ -883,11 +891,7 @@ async function handleChooseSlot(
       total: service.price,
       discount: 0,
       services: {
-        create: [{
-          serviceId: service.id,
-          price: service.price,
-          durationMinutes: service.durationMinutes,
-        }],
+        create: [{ serviceId: service.id, price: service.price, durationMinutes: service.durationMinutes }],
       },
     },
   });
@@ -901,9 +905,64 @@ async function handleChooseSlot(
   });
 
   return {
-    reply: `Prontinho, tá agendado! ✅\n\n📅 ${dateFormatted} às ${slotNatural(selectedSlot)}\n✂️ ${service.name}\n💈 ${state.barberName}\n💰 ${formatPrice(service.price)}\n🔐 Código: ${appointment.code}\n\nQualquer coisa é só mandar *cancelar*. Te espero! 😄`,
+    reply: `Prontinho, tá agendado! ✅\n\n📅 ${dateFormatted} às ${slotNatural(slot)}\n✂️ ${service.name}\n💈 ${barberName}\n💰 ${formatPrice(service.price)}\n🔐 Código: ${appointment.code}\n\nQualquer coisa é só mandar *cancelar*. Te espero! 😄`,
     aiMessageCounted: true,
   };
+}
+
+async function handleAskName(
+  store: { id: string; name: string; slug: string },
+  state: ConversationState,
+  text: string,
+): Promise<ChatbotResult> {
+  const name = text.trim().replace(/\s+/g, " ");
+  if (name.length < 2 || name.length > 60 || /^\d+$/.test(name)) {
+    return { reply: "Como posso te chamar? Me diz seu nome 😊", aiMessageCounted: true };
+  }
+
+  if (!state.serviceIds?.length || !state.barberId || !state.date || !state.pendingSlot) {
+    await dropConv(state.storeId, state.phone);
+    return { reply: "A conversa expirou 😅 Manda *oi* que recomeçamos rapidinho!", aiMessageCounted: true };
+  }
+
+  // Cria/atualiza o cliente com o nome informado
+  const phoneDigits = state.phone.replace(/\D/g, "");
+  const existing = await prisma.customer.findFirst({
+    where: { storeId: store.id, phone: phoneDigits },
+  });
+  let customerId: string;
+  if (existing) {
+    await prisma.customer.update({ where: { id: existing.id }, data: { name } });
+    customerId = existing.id;
+  } else {
+    const created = await prisma.customer.create({
+      data: { storeId: store.id, phone: phoneDigits, name },
+    });
+    customerId = created.id;
+  }
+
+  const service = await prisma.service.findUnique({
+    where: { id: state.serviceIds[0] },
+    select: { id: true, name: true, price: true, durationMinutes: true },
+  });
+  if (!service) {
+    await dropConv(state.storeId, state.phone);
+    return { reply: "Ops, não achei o serviço. Manda *oi* pra recomeçar.", aiMessageCounted: true };
+  }
+
+  const [y, m, d] = state.date.split("-").map(Number);
+  const [h, mi] = state.pendingSlot.split(":").map(Number);
+  const startAt = new Date(y, m - 1, d, h, mi, 0, 0);
+  const endAt = new Date(startAt.getTime() + service.durationMinutes * 60_000);
+
+  // Revalida disponibilidade (pode ter sido ocupado enquanto pedíamos o nome)
+  const issue = await checkAvailability({ barberId: state.barberId, startAt, endAt });
+  if (issue) {
+    await dropConv(state.storeId, state.phone);
+    return { reply: `Ah ${name}, esse horário acabou de ser ocupado 😕 Manda *oi* que a gente acha outro!`, aiMessageCounted: true };
+  }
+
+  return commitBooking(store, state, service, state.barberId, state.barberName || "", customerId, startAt, endAt, state.pendingSlot);
 }
 
 async function handleMyAppointments(
