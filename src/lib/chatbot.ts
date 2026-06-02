@@ -21,7 +21,8 @@ type ConversationStep =
   | "choose_barber"
   | "choose_date"
   | "choose_slot"
-  | "my_appointments";
+  | "my_appointments"
+  | "cancel_select";
 
 interface ConversationState {
   step: ConversationStep;
@@ -33,6 +34,7 @@ interface ConversationState {
   barberName?: string;
   date?: string; // YYYY-MM-DD
   slots?: string[]; // HH:mm[]
+  cancelIds?: string[]; // ids de agendamentos oferecidos para cancelar
   updatedAt: number;
 }
 
@@ -56,6 +58,7 @@ async function loadConv(storeId: string, phone: string): Promise<ConversationSta
     barberName: data.barberName,
     date: data.date,
     slots: data.slots,
+    cancelIds: data.cancelIds,
     updatedAt: row.updatedAt.getTime(),
   };
 }
@@ -69,6 +72,7 @@ async function saveConv(state: ConversationState) {
     barberName: state.barberName ?? null,
     date: state.date ?? null,
     slots: state.slots ?? null,
+    cancelIds: state.cancelIds ?? null,
   };
   await prisma.chatbotConversation.upsert({
     where: { storeId_phone: { storeId, phone } },
@@ -168,6 +172,16 @@ export async function handleIncomingMessage(
 
   const state = await loadConv(storeId, phone);
 
+  // ── Comando global: cancelar agendamento ──
+  if (lower === "cancelar" || lower === "desmarcar") {
+    return handleCancelStart(store, state);
+  }
+
+  // Se está no passo de seleção de cancelamento, trata aqui
+  if (state.step === "cancel_select") {
+    return handleCancelSelect(store, state, text);
+  }
+
   // ── Modo IA: tenta resolver com linguagem natural ──
   if (isAiEnabled() && state.step === "menu") {
     const aiResult = await handleAiMessage(store, state, text);
@@ -246,6 +260,11 @@ async function handleAiMessage(
       { storeName: store.name },
     );
     return { reply, aiMessageCounted: true };
+  }
+
+  // Cancelar agendamento
+  if (parsed.intent === "cancelar") {
+    return handleCancelStart(store, state);
   }
 
   // Agendar — a parte inteligente
@@ -794,7 +813,109 @@ async function handleMyAppointments(
     .join("\n\n");
 
   return {
-    reply: `*Seus próximos agendamentos:*\n\n${list}\n\nMande *oi* para novo agendamento.`,
+    reply: `*Seus próximos agendamentos:*\n\n${list}\n\nPara cancelar, mande *cancelar*. Para novo agendamento, mande *oi*.`,
+    aiMessageCounted: true,
+  };
+}
+
+// ── Cancelamento ─────────────────────────────────
+
+async function handleCancelStart(
+  store: { id: string; name: string },
+  state: ConversationState,
+): Promise<ChatbotResult> {
+  const phoneDigits = state.phone.replace(/\D/g, "");
+  const customer = await prisma.customer.findFirst({
+    where: { storeId: store.id, phone: phoneDigits },
+    select: { id: true },
+  });
+
+  if (!customer) {
+    await dropConv(state.storeId, state.phone);
+    return { reply: "Não encontramos agendamentos para este número. Mande *oi* para agendar!", aiMessageCounted: true };
+  }
+
+  const upcoming = await prisma.appointment.findMany({
+    where: {
+      customerId: customer.id,
+      storeId: store.id,
+      status: { in: ["SCHEDULED", "CONFIRMED"] },
+      startAt: { gte: new Date() },
+    },
+    include: {
+      barber: { select: { name: true } },
+      services: { include: { service: { select: { name: true } } } },
+    },
+    orderBy: { startAt: "asc" },
+    take: 5,
+  });
+
+  if (upcoming.length === 0) {
+    await dropConv(state.storeId, state.phone);
+    return { reply: "Você não tem agendamentos futuros para cancelar. Mande *oi* para agendar!", aiMessageCounted: true };
+  }
+
+  const list = upcoming
+    .map((a, i) => {
+      const dt = new Date(a.startAt);
+      const hora = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return `${i + 1}️⃣ ${dt.toLocaleDateString("pt-BR")} ${hora} — ${a.services.map((s) => s.service.name).join(", ")} com ${a.barber.name}`;
+    })
+    .join("\n");
+
+  await saveConv({ ...state, step: "cancel_select", cancelIds: upcoming.map((a) => a.id) });
+
+  return {
+    reply: `Qual agendamento você quer cancelar?\n\n${list}\n\n_Digite o número ou "0" para voltar._`,
+    aiMessageCounted: true,
+  };
+}
+
+async function handleCancelSelect(
+  store: { id: string; name: string },
+  state: ConversationState,
+  text: string,
+): Promise<ChatbotResult> {
+  if (!state.cancelIds || state.cancelIds.length === 0) {
+    await dropConv(state.storeId, state.phone);
+    return { reply: "Sessão expirada. Mande *cancelar* novamente.", aiMessageCounted: true };
+  }
+
+  const choice = parseInt(text.trim());
+  if (isNaN(choice) || choice < 1 || choice > state.cancelIds.length) {
+    return { reply: `Opção inválida. Digite de 1 a ${state.cancelIds.length}, ou "0" para voltar.`, aiMessageCounted: true };
+  }
+
+  const apptId = state.cancelIds[choice - 1];
+  const appt = await prisma.appointment.findFirst({
+    where: { id: apptId, storeId: store.id },
+    include: {
+      barber: { select: { name: true } },
+      services: { include: { service: { select: { name: true } } } },
+    },
+  });
+
+  if (!appt || (appt.status !== "SCHEDULED" && appt.status !== "CONFIRMED")) {
+    await dropConv(state.storeId, state.phone);
+    return { reply: "Esse agendamento não está mais ativo. Mande *oi* para agendar.", aiMessageCounted: true };
+  }
+
+  await prisma.appointment.update({
+    where: { id: apptId },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: new Date(),
+      cancelReason: "Cancelado pelo cliente via WhatsApp",
+    },
+  });
+
+  await dropConv(state.storeId, state.phone);
+
+  const dt = new Date(appt.startAt);
+  const hora = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  return {
+    reply: `Agendamento cancelado ✅\n\n📅 ${dt.toLocaleDateString("pt-BR")} às ${hora}\n✂️ ${appt.services.map((s) => s.service.name).join(", ")}\n💈 ${appt.barber.name}\n\nMande *oi* se quiser agendar novamente.`,
     aiMessageCounted: true,
   };
 }
