@@ -151,6 +151,36 @@ function pickByNumberOrName<T extends { name: string }>(text: string, items: T[]
   );
 }
 
+/** Junta itens em linguagem natural: "a, b ou c". */
+function naturalJoin(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} ou ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} ou ${items[items.length - 1]}`;
+}
+
+/** "09:00" → "9h", "14:30" → "14h30". */
+function slotNatural(s: string): string {
+  const [h, m] = s.split(":");
+  const hh = parseInt(h);
+  return m === "00" ? `${hh}h` : `${hh}h${m}`;
+}
+
+/** Escolhe um horário pela hora dita ("10h", "14:30", "10") ou pelo índice. */
+function pickSlot(text: string, slots: string[]): string | null {
+  const t = text.trim().toLowerCase();
+  const hm = normalizeTime(t);
+  if (hm && slots.includes(hm)) return hm;
+  // número puro: pode ser hora (10 → 10:00) ou índice da lista
+  if (/^\d{1,2}$/.test(t)) {
+    const n = parseInt(t);
+    const asTime = `${n.toString().padStart(2, "0")}:00`;
+    if (slots.includes(asTime)) return asTime;
+    if (n >= 1 && n <= slots.length) return slots[n - 1];
+  }
+  return null;
+}
+
 /** Detecta perguntas frequentes (FAQ) para responder sem perder o fluxo. */
 function detectFaq(lower: string): "address" | "contact" | "hours" | null {
   if (/(endere|onde fica|onde é|onde e|localiza|como cheg|fica onde)/.test(lower)) return "address";
@@ -352,12 +382,10 @@ async function handleAiScheduling(
 
   // Se falta serviço → pede
   if (!service) {
-    const list = services
-      .map((s, i) => `${i + 1}️⃣ ${s.name} (${formatPrice(s.price)} · ${s.durationMinutes}min)`)
-      .join("\n");
+    const opts = naturalJoin(services.map((s) => `*${s.name}* (${formatPrice(s.price)})`));
     await saveConv({ ...state, step: "choose_service", serviceIds: services.map((s) => s.id) });
     return {
-      reply: `Entendi que você quer agendar! ✂️\n\nQual serviço?\n\n${list}\n\n_Digite o número ou o nome do serviço._`,
+      reply: `Bora agendar! ✂️ O que você quer fazer? Temos ${opts}.`,
       aiMessageCounted: true,
     };
   }
@@ -367,7 +395,7 @@ async function handleAiScheduling(
     if (barbers.length === 1) {
       barber = barbers[0]; // só tem 1, usa direto
     } else {
-      const list = barbers.map((b, i) => `${i + 1}️⃣ ${b.name}`).join("\n");
+      const nomes = naturalJoin(barbers.map((b) => `*${b.name}*`));
       await saveConv({
         ...state,
         step: "choose_barber",
@@ -375,7 +403,7 @@ async function handleAiScheduling(
         serviceName: service.name,
       });
       return {
-        reply: `*${service.name}* selecionado! 👍\n\nCom qual barbeiro?\n\n${list}\n\n_Digite o número ou o nome._`,
+        reply: `Boa, *${service.name}*! 👍 Com quem você prefere — ${nomes}? (ou "tanto faz")`,
         aiMessageCounted: true,
       };
     }
@@ -393,7 +421,7 @@ async function handleAiScheduling(
       barberName: barber.name,
     });
     return {
-      reply: `*${service.name}* com *${barber.name}* ✅\n\nQual dia você prefere?\n\nExemplos: _hoje_, _amanhã_, _segunda_, _15/06_`,
+      reply: `Fechou: *${service.name}* com *${barber.name}*! 📅 Que dia fica bom — _hoje_, _amanhã_, _sexta_ ou uma data tipo _15/06_?`,
       aiMessageCounted: true,
     };
   }
@@ -433,7 +461,7 @@ async function handleAiScheduling(
       barberName: barber.name,
     });
     return {
-      reply: `Sem horários disponíveis para *${dateObj.toLocaleDateString("pt-BR")}* com ${barber.name} 😕\n\nTente outro dia!`,
+      reply: `Poxa, o *${barber.name}* não tem horário em ${dateObj.toLocaleDateString("pt-BR")} 😕 Quer tentar outro dia?`,
       aiMessageCounted: true,
     };
   }
@@ -447,7 +475,7 @@ async function handleAiScheduling(
     }
     // Horário não disponível — mostra os disponíveis
     if (requestedTime) {
-      const list = slots.map((s, i) => `${i + 1}️⃣ ${s}`).join("\n");
+      const horarios = naturalJoin(slots.map(slotNatural));
       await saveConv({
         ...state,
         step: "choose_slot",
@@ -459,14 +487,14 @@ async function handleAiScheduling(
         slots,
       });
       return {
-        reply: `O horário *${requestedTime}* não está disponível com ${barber.name} em ${dateObj.toLocaleDateString("pt-BR")} 😕\n\nHorários livres:\n\n${list}\n\n_Digite o número._`,
+        reply: `O ${slotNatural(requestedTime)} já foi nesse dia 😕 Mas o *${barber.name}* tem: ${horarios}. Qual rola?`,
         aiMessageCounted: true,
       };
     }
   }
 
   // Sem horário especificado — mostra slots
-  const list = slots.map((s, i) => `${i + 1}️⃣ ${s}`).join("\n");
+  const horarios = naturalJoin(slots.map(slotNatural));
   await saveConv({
     ...state,
     step: "choose_slot",
@@ -479,7 +507,7 @@ async function handleAiScheduling(
   });
 
   return {
-    reply: `*${service.name}* com *${barber.name}* em *${dateObj.toLocaleDateString("pt-BR")}* 🗓️\n\nHorários disponíveis:\n\n${list}\n\n_Digite o número do horário._`,
+    reply: `Pra *${dateObj.toLocaleDateString("pt-BR")}* o *${barber.name}* tem: ${horarios}. Qual horário fica melhor? 🕐`,
     aiMessageCounted: true,
   };
 }
@@ -571,9 +599,7 @@ async function handleMenu(
     };
   }
 
-  const list = services
-    .map((s, i) => `${i + 1}️⃣ ${s.name} (${formatPrice(s.price)} · ${s.durationMinutes}min)`)
-    .join("\n");
+  const opts = naturalJoin(services.map((s) => `*${s.name}* (${formatPrice(s.price)})`));
 
   // Salva mapeamento para usar no próximo passo
   await saveConv({
@@ -583,7 +609,7 @@ async function handleMenu(
   });
 
   return {
-    reply: `Olá! Bem-vindo à *${store.name}* ✂️\n\nQual serviço você deseja?\n\n${list}\n\n_Digite o número ou "0" para voltar._`,
+    reply: `Olá! Seja bem-vindo à *${store.name}* ✂️\n\nO que você gostaria de fazer hoje? Temos ${opts}. É só me dizer 😊`,
     aiMessageCounted: true,
   };
 }
@@ -616,10 +642,6 @@ async function handleChooseService(
     return { reply: "Nenhum barbeiro disponível no momento. Tente novamente mais tarde.", aiMessageCounted: true };
   }
 
-  const list = barbers
-    .map((b, i) => `${i + 1}️⃣ ${b.name}`)
-    .join("\n");
-
   await saveConv({
     ...state,
     step: "choose_barber",
@@ -627,8 +649,13 @@ async function handleChooseService(
     serviceName: selected.name,
   });
 
+  const nomes = naturalJoin(barbers.map((b) => `*${b.name}*`));
+  const comQuem = barbers.length === 1
+    ? `Vai ser com o *${barbers[0].name}*.`
+    : `Com quem você prefere — ${nomes}? (ou diz "tanto faz" que eu escolho)`;
+
   return {
-    reply: `*${selected.name}* selecionado! 👍\n\nCom qual barbeiro?\n\n${list}\n\n_Digite o número ou "0" para voltar._`,
+    reply: `Boa escolha, *${selected.name}*! 👍\n\n${comQuem}`,
     aiMessageCounted: true,
   };
 }
@@ -644,9 +671,14 @@ async function handleChooseBarber(
     orderBy: { name: "asc" },
   });
 
-  const selected = pickByNumberOrName(text, barbers);
+  // "tanto faz" / "qualquer" → escolhe o primeiro barbeiro
+  const lower = text.toLowerCase().trim();
+  const anyBarber = /(tanto faz|qualquer|qualquer um|voc[eê] escolhe|pode ser qualquer|n[ãa]o importa)/.test(lower);
+
+  const selected = anyBarber ? barbers[0] : pickByNumberOrName(text, barbers);
   if (!selected) {
-    return { reply: `Não encontrei esse barbeiro. Digite o número (1 a ${barbers.length}) ou o nome, ou "0" para voltar.`, aiMessageCounted: true };
+    const nomes = naturalJoin(barbers.map((b) => b.name));
+    return { reply: `Hmm, não achei esse barbeiro 😅 Pode ser com ${nomes}. Qual você prefere?`, aiMessageCounted: true };
   }
 
   await saveConv({
@@ -656,8 +688,9 @@ async function handleChooseBarber(
     barberName: selected.name,
   });
 
+  const intro = anyBarber ? `Beleza, vou deixar com o *${selected.name}*!` : `Fechou com o *${selected.name}*!`;
   return {
-    reply: `Barbeiro: *${selected.name}* ✅\n\nQual dia você prefere?\n\nExemplos:\n• _hoje_\n• _amanhã_\n• _segunda_\n• _15/06_\n\n_Digite "0" para voltar._`,
+    reply: `${intro} 📅\n\nQue dia fica bom pra você? Pode dizer _hoje_, _amanhã_, _sexta_ ou uma data tipo _15/06_.`,
     aiMessageCounted: true,
   };
 }
@@ -730,14 +763,12 @@ async function handleChooseDate(
 
   if (slots.length === 0) {
     return {
-      reply: `Sem horários disponíveis para *${dateObj.toLocaleDateString("pt-BR")}* com ${state.barberName}.\n\nTente outro dia ou "0" para voltar.`,
+      reply: `Poxa, o *${state.barberName}* não tem horário livre em ${dateObj.toLocaleDateString("pt-BR")} 😕\nQuer tentar outro dia?`,
       aiMessageCounted: true,
     };
   }
 
-  const list = slots
-    .map((s, i) => `${i + 1}️⃣ ${s}`)
-    .join("\n");
+  const horarios = naturalJoin(slots.map(slotNatural));
 
   await saveConv({
     ...state,
@@ -747,7 +778,7 @@ async function handleChooseDate(
   });
 
   return {
-    reply: `Horários para *${dateObj.toLocaleDateString("pt-BR")}* com *${state.barberName}*:\n\n${list}\n\n_Digite o número do horário ou "0" para voltar._`,
+    reply: `Pra *${dateObj.toLocaleDateString("pt-BR")}* o *${state.barberName}* tem: ${horarios}.\n\nQual horário fica melhor pra você?`,
     aiMessageCounted: true,
   };
 }
@@ -762,12 +793,12 @@ async function handleChooseSlot(
     return { reply: "Sessão expirada. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
-  const choice = parseInt(text.trim());
-  if (isNaN(choice) || choice < 1 || choice > state.slots.length) {
-    return { reply: `Opção inválida. Digite de 1 a ${state.slots.length}, ou "0" para voltar.`, aiMessageCounted: true };
+  const selectedSlot = pickSlot(text, state.slots);
+  if (!selectedSlot) {
+    const horarios = naturalJoin(state.slots.map(slotNatural));
+    return { reply: `Esse horário não tá na lista 😅 Os disponíveis são: ${horarios}. Qual prefere?`, aiMessageCounted: true };
   }
 
-  const selectedSlot = state.slots[choice - 1];
   const [y, m, d] = state.date.split("-").map(Number);
   const [h, min] = selectedSlot.split(":").map(Number);
   const startAt = new Date(y, m - 1, d, h, min, 0, 0);
@@ -840,7 +871,7 @@ async function handleChooseSlot(
   });
 
   return {
-    reply: `*Agendamento confirmado!* ✅\n\n📅 ${dateFormatted} às ${selectedSlot}\n✂️ ${service.name}\n💈 ${state.barberName}\n💰 ${formatPrice(service.price)}\n🔐 Código: ${appointment.code}\n\nPara cancelar ou remarcar, mande *cancelar*.\nPara novo agendamento, mande *oi*.`,
+    reply: `Prontinho, tá agendado! ✅\n\n📅 ${dateFormatted} às ${slotNatural(selectedSlot)}\n✂️ ${service.name}\n💈 ${state.barberName}\n💰 ${formatPrice(service.price)}\n🔐 Código: ${appointment.code}\n\nQualquer coisa é só mandar *cancelar*. Te espero! 😄`,
     aiMessageCounted: true,
   };
 }
