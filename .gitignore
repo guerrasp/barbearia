@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Config local do Claude Code (pode conter caminhos/segredos locais)
 .claude/settings.local.json
+
+# Checklist interno de rotação de segredos
+ROTATE-SECRETS.md
