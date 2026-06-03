@@ -84,6 +84,12 @@ body {
   background: var(--korta-surface-2);
 }
 
+/* ===== Animações da landing (lp) ===== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ===== Prose dark (termos / privacidade) =====
  * Tipografia simples para páginas de conteúdo. Tema escuro Korta.
  */
