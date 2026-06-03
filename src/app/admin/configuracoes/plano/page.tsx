@@ -71,15 +71,15 @@ const PLAN_BENEFITS: Record<Plan, string[]> = {
   BUSINESS: [
     "Barbeiros ilimitados",
     "Atendente virtual IA (50 msg/mês)",
-    "Multi-unidades",
-    "Relatórios avançados",
+    "Relatórios avançados + CSV",
+    "Multi-unidades (em breve)",
     "Tudo do Pro",
   ],
   KORTA_IA: [
     "Atendente virtual IA ilimitado 24h",
     "Barbeiros ilimitados",
-    "Multi-unidades",
-    "Relatórios avançados",
+    "Relatórios avançados + CSV",
+    "Multi-unidades (em breve)",
     "Tudo do Business",
   ],
 };

@@ -16,6 +16,7 @@ import {
   Crown,
   Palette,
   Repeat,
+  BarChart3,
   LogOut,
   X,
 } from "lucide-react";
@@ -36,6 +37,7 @@ const menuItems: MenuItem[] = [
   { href: "/admin/servicos", label: "Serviços", icon: Scissors, roles: ["ADMIN"] },
   { href: "/admin/barbeiros", label: "Barbeiros", icon: UserCog, roles: ["ADMIN"] },
   { href: "/admin/clientes", label: "Clientes", icon: Users, roles: ["ADMIN"] },
+  { href: "/admin/relatorios", label: "Relatórios", icon: BarChart3, roles: ["ADMIN"] },
   { href: "/admin/assinaturas", label: "Clube", icon: Repeat, roles: ["ADMIN"] },
   { href: "/admin/meu-perfil", label: "Meu Perfil", icon: UserCog, roles: ["BARBER"] },
   { href: "/admin/configuracoes/plano", label: "Plano", icon: Crown, roles: ["ADMIN"] },

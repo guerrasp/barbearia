@@ -20,7 +20,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [user, isLoading]);
 
   // Redireciona BARBER de páginas admin-only para a agenda
-  const ADMIN_ONLY = ["/admin/servicos", "/admin/barbeiros", "/admin/clientes", "/admin/configuracoes"];
+  const ADMIN_ONLY = ["/admin/servicos", "/admin/barbeiros", "/admin/clientes", "/admin/configuracoes", "/admin/relatorios", "/admin/assinaturas"];
   useEffect(() => {
     if (!isLoading && user?.role === "BARBER") {
       const isAdminOnly = pathname === "/admin" || ADMIN_ONLY.some((p) => pathname.startsWith(p));
