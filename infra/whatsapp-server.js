@@ -49,6 +49,10 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
+// Mapping LID -> telefone real. Preenchido quando o WhatsApp manda o
+// senderPn, e reaproveitado nas mensagens que vierem sem ele.
+const lidToPn = {}; // convKey -> phone digits
+
 function getSession(storeId) {
   return sessions[storeId] || null;
 }
@@ -140,20 +144,24 @@ async function startSession(storeId) {
       if (rawJid.endsWith("@g.us")) continue; // grupo
       if (rawJid === "status@broadcast") continue; // status/stories
 
-      // Resolve um identificador ESTÁVEL do contato.
-      // O WhatsApp novo usa "@lid" (privacy id) e o número (@s.whatsapp.net)
-      // de forma intercambiável. Preferimos sempre o número de telefone real,
-      // que o Baileys expõe em remoteJidAlt / senderPn, para não criar duas
-      // conversas distintas para a mesma pessoa.
+      // ── Identificador estável + telefone real ──
+      // O WhatsApp manda o senderPn (telefone) em ALGUMAS mensagens e em
+      // outras não. O remoteJid (ex: "64708...@lid") é SEMPRE o mesmo por
+      // pessoa, então usamos ele como CHAVE da conversa (convKey) — nunca
+      // divide. O telefone real (senderPn) guardamos só pro cadastro, com
+      // um mapping pra reaproveitar quando vier vazio.
+      const convKey = rawJid.replace(/@(s\.whatsapp\.net|lid)$/, "");
       const pnJid = msg.key.remoteJidAlt || msg.key.senderPn || "";
-      let phone;
+      let phone = ""; // telefone REAL (vazio se ainda não sabemos)
       if (pnJid && pnJid.includes("@s.whatsapp.net")) {
         phone = pnJid.replace("@s.whatsapp.net", "");
+        if (rawJid.endsWith("@lid")) lidToPn[convKey] = phone; // memoriza
       } else if (rawJid.endsWith("@s.whatsapp.net")) {
-        phone = rawJid.replace("@s.whatsapp.net", "");
-      } else {
-        phone = rawJid; // só temos o @lid — usa como chave estável
+        phone = convKey; // chat por número: convKey já é o telefone
+      } else if (lidToPn[convKey]) {
+        phone = lidToPn[convKey]; // recupera o telefone real já visto
       }
+      const replyJid = rawJid; // responde sempre no mesmo JID que chegou
 
       const text =
         msg.message.conversation ||
@@ -174,8 +182,7 @@ async function startSession(storeId) {
           if (mid && processedMsgIds.has(mid)) continue;
           if (mid) processedMsgIds.set(mid, Date.now());
           try {
-            const jid = phone.includes("@") ? phone : phone.replace(/\D/g, "") + "@s.whatsapp.net";
-            await sock.sendMessage(jid, {
+            await sock.sendMessage(replyJid, {
               text: "Por enquanto eu entendo apenas mensagens de *texto* 🙏\nMe escreve o que você precisa (ex: \"quero agendar um corte amanhã\").",
             });
           } catch {}
@@ -193,8 +200,7 @@ async function startSession(storeId) {
         processedMsgIds.set(msgId, Date.now());
       }
 
-      // Log da estrutura da key para diagnóstico do LID
-      console.log(`[${storeId}] key=${JSON.stringify(msg.key)} -> phone=${phone} | "${text.substring(0, 60)}"`);
+      console.log(`[${storeId}] convKey=${convKey} phone=${phone} | "${text.substring(0, 50)}"`);
 
       // Encaminha para o webhook do Next.js (fire-and-forget)
       if (CHATBOT_WEBHOOK) {
@@ -204,7 +210,7 @@ async function startSession(storeId) {
             "Content-Type": "application/json",
             "X-API-Key": API_KEY,
           },
-          body: JSON.stringify({ storeId, phone, text: text.trim(), messageId: msg.key.id }),
+          body: JSON.stringify({ storeId, convKey, phone, replyJid, text: text.trim(), messageId: msg.key.id }),
         }).catch((e) => console.error(`[${storeId}] Webhook erro:`, e.message));
       }
     }

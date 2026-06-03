@@ -29,9 +29,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { storeId, phone, text } = body;
+    // convKey = chave estável da conversa (remoteJid); replyJid = pra onde responder.
+    // Fallback pra retrocompatibilidade com versões antigas do servidor WhatsApp.
+    const convKey: string = body.convKey || phone;
+    const replyJid: string = body.replyJid || phone;
 
-    if (!storeId || !phone || !text) {
-      return NextResponse.json({ error: "storeId, phone e text obrigatórios" }, { status: 400 });
+    if (!storeId || !convKey || !text) {
+      return NextResponse.json({ error: "storeId, convKey e text obrigatórios" }, { status: 400 });
     }
 
     // Verifica o plano da loja e limite de mensagens
@@ -65,7 +69,7 @@ export async function POST(req: NextRequest) {
 
       if (monthCount >= limits.aiMessagesPerMonth) {
         // Limite atingido — envia mensagem avisando
-        await sendWhatsAppReply(storeId, phone,
+        await sendWhatsAppReply(storeId, replyJid,
           "O limite de atendimento automático deste mês foi atingido. " +
           "Entre em contato diretamente com a barbearia para agendar. " +
           "Obrigado pela compreensão! 🙏"
@@ -74,20 +78,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Processa a mensagem
-    const result = await handleIncomingMessage(storeId, phone, text);
+    // Processa a mensagem (convKey = chave estável da conversa; phone = telefone real do cliente)
+    const result = await handleIncomingMessage(storeId, convKey, phone, text);
 
     if (!result.reply) {
       return NextResponse.json({ skipped: "no_reply" });
     }
 
-    // Envia resposta via WhatsApp
-    await sendWhatsAppReply(storeId, phone, result.reply);
+    // Envia resposta via WhatsApp (no JID original que chegou)
+    await sendWhatsAppReply(storeId, replyJid, result.reply);
 
     // Registra no log se contou como mensagem IA
     if (result.aiMessageCounted) {
       await prisma.chatbotMessage.create({
-        data: { storeId, phone, direction: "BOT_REPLY" },
+        data: { storeId, phone: convKey, direction: "BOT_REPLY" },
       }).catch(() => {}); // best-effort
     }
 

@@ -30,7 +30,8 @@ type ConversationStep =
 interface ConversationState {
   step: ConversationStep;
   storeId: string;
-  phone: string;
+  convKey: string; // chave estável da conversa (remoteJid) — usada para load/save/drop
+  phone: string;   // telefone real do cliente (para cadastro) — pode ser vazio até resolver
   serviceIds?: string[];
   serviceName?: string;
   barberId?: string;
@@ -46,16 +47,17 @@ interface ConversationState {
 // Em serverless a memória não é compartilhada entre instâncias, então
 // cada mensagem é carregada/salva no banco para a conversa não "resetar".
 
-async function loadConv(storeId: string, phone: string): Promise<ConversationState> {
+async function loadConv(storeId: string, convKey: string): Promise<ConversationState> {
   const row = await prisma.chatbotConversation.findUnique({
-    where: { storeId_phone: { storeId, phone } },
+    where: { storeId_phone: { storeId, phone: convKey } },
   });
-  if (!row) return { step: "menu", storeId, phone, updatedAt: Date.now() };
+  if (!row) return { step: "menu", storeId, convKey, phone: "", updatedAt: Date.now() };
   const data = (row.data ?? {}) as unknown as Partial<ConversationState>;
   return {
     step: row.step as ConversationStep,
     storeId,
-    phone,
+    convKey,
+    phone: data.phone || "",
     serviceIds: data.serviceIds,
     serviceName: data.serviceName,
     barberId: data.barberId,
@@ -69,8 +71,9 @@ async function loadConv(storeId: string, phone: string): Promise<ConversationSta
 }
 
 async function saveConv(state: ConversationState) {
-  const { storeId, phone, step } = state;
+  const { storeId, convKey, step } = state;
   const data = {
+    phone: state.phone ?? null,
     serviceIds: state.serviceIds ?? null,
     serviceName: state.serviceName ?? null,
     barberId: state.barberId ?? null,
@@ -81,14 +84,14 @@ async function saveConv(state: ConversationState) {
     cancelIds: state.cancelIds ?? null,
   };
   await prisma.chatbotConversation.upsert({
-    where: { storeId_phone: { storeId, phone } },
-    create: { storeId, phone, step, data },
+    where: { storeId_phone: { storeId, phone: convKey } },
+    create: { storeId, phone: convKey, step, data },
     update: { step, data },
   });
 }
 
-async function dropConv(storeId: string, phone: string) {
-  await prisma.chatbotConversation.deleteMany({ where: { storeId, phone } });
+async function dropConv(storeId: string, convKey: string) {
+  await prisma.chatbotConversation.deleteMany({ where: { storeId, phone: convKey } });
 }
 
 // ── Helpers ──────────────────────────────────────
@@ -227,6 +230,7 @@ export interface ChatbotResult {
 
 export async function handleIncomingMessage(
   storeId: string,
+  convKey: string,
   phone: string,
   text: string,
 ): Promise<ChatbotResult> {
@@ -249,10 +253,15 @@ export async function handleIncomingMessage(
   // Reset: se digitar "menu", "voltar", "0" → volta ao menu
   const lower = text.toLowerCase().trim();
   if (["menu", "voltar", "0"].includes(lower)) {
-    await dropConv(storeId, phone);
+    await dropConv(storeId, convKey);
   }
 
-  const state = await loadConv(storeId, phone);
+  const state = await loadConv(storeId, convKey);
+  // Telefone real do cliente: atualiza só quando veio resolvido nesta
+  // mensagem; senão mantém o já guardado (não rebaixa). Último recurso
+  // pro cadastro é o próprio convKey.
+  if (phone) state.phone = phone;
+  if (!state.phone) state.phone = convKey;
 
   // ── FAQ: responde perguntas comuns sem perder o passo atual ──
   const faq = detectFaq(lower);
@@ -326,7 +335,7 @@ export async function handleIncomingMessage(
     case "my_appointments":
       return handleMyAppointments(store, state, text);
     default:
-      await dropConv(storeId, phone);
+      await dropConv(storeId, convKey);
       return handleMenu(store, state);
   }
 }
@@ -377,7 +386,7 @@ async function handleAiMessage(
 
   // Falar com humano
   if (parsed.intent === "falar_humano") {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     const reply = await generateReply(
       "O cliente quer falar com um humano. Avise educadamente que a equipe vai entrar em contato em breve.",
       { storeName: store.name },
@@ -600,7 +609,7 @@ async function handleMenu(
   });
 
   if (services.length === 0) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return {
       reply: `Olá! A *${store.name}* ainda não configurou serviços. Entre em contato diretamente.`,
       aiMessageCounted: true,
@@ -659,7 +668,7 @@ async function handleChooseService(
   });
 
   if (barbers.length === 0) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Nenhum barbeiro disponível no momento. Tente novamente mais tarde.", aiMessageCounted: true };
   }
 
@@ -779,7 +788,7 @@ async function handleChooseDate(
   }
 
   if (!state.barberId || !state.serviceIds?.length) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Sessão expirada. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
@@ -824,7 +833,7 @@ async function handleChooseSlot(
   text: string,
 ): Promise<ChatbotResult> {
   if (!state.slots || !state.date || !state.barberId || !state.serviceIds?.length) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Sessão expirada. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
@@ -844,7 +853,7 @@ async function handleChooseSlot(
   });
 
   if (!service) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Serviço não encontrado. Mande qualquer mensagem para recomeçar.", aiMessageCounted: true };
   }
 
@@ -935,7 +944,7 @@ async function commitBooking(
     },
   });
 
-  await dropConv(state.storeId, state.phone);
+  await dropConv(state.storeId, state.convKey);
 
   const dateFormatted = startAt.toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -960,7 +969,7 @@ async function handleAskName(
   }
 
   if (!state.serviceIds?.length || !state.barberId || !state.date || !state.pendingSlot) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "A conversa expirou 😅 Manda *oi* que recomeçamos rapidinho!", aiMessageCounted: true };
   }
 
@@ -985,7 +994,7 @@ async function handleAskName(
     select: { id: true, name: true, price: true, durationMinutes: true },
   });
   if (!service) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Ops, não achei o serviço. Manda *oi* pra recomeçar.", aiMessageCounted: true };
   }
 
@@ -997,7 +1006,7 @@ async function handleAskName(
   // Revalida disponibilidade (pode ter sido ocupado enquanto pedíamos o nome)
   const issue = await checkAvailability({ barberId: state.barberId, startAt, endAt });
   if (issue) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: `Ah ${name}, esse horário acabou de ser ocupado 😕 Manda *oi* que a gente acha outro!`, aiMessageCounted: true };
   }
 
@@ -1016,7 +1025,7 @@ async function handleMyAppointments(
   });
 
   if (!customer) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Não encontramos agendamentos para este número. Mande *oi* para agendar!", aiMessageCounted: true };
   }
 
@@ -1035,7 +1044,7 @@ async function handleMyAppointments(
     take: 5,
   });
 
-  await dropConv(state.storeId, state.phone);
+  await dropConv(state.storeId, state.convKey);
 
   if (upcoming.length === 0) {
     return { reply: "Você não tem agendamentos futuros. Mande *oi* para agendar!", aiMessageCounted: true };
@@ -1067,7 +1076,7 @@ async function handleCancelStart(
   });
 
   if (!customer) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Não encontramos agendamentos para este número. Mande *oi* para agendar!", aiMessageCounted: true };
   }
 
@@ -1087,7 +1096,7 @@ async function handleCancelStart(
   });
 
   if (upcoming.length === 0) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Você não tem agendamentos futuros para cancelar. Mande *oi* para agendar!", aiMessageCounted: true };
   }
 
@@ -1113,7 +1122,7 @@ async function handleCancelSelect(
   text: string,
 ): Promise<ChatbotResult> {
   if (!state.cancelIds || state.cancelIds.length === 0) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Sessão expirada. Mande *cancelar* novamente.", aiMessageCounted: true };
   }
 
@@ -1132,7 +1141,7 @@ async function handleCancelSelect(
   });
 
   if (!appt || (appt.status !== "SCHEDULED" && appt.status !== "CONFIRMED")) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return { reply: "Esse agendamento não está mais ativo. Mande *oi* para agendar.", aiMessageCounted: true };
   }
 
@@ -1145,7 +1154,7 @@ async function handleCancelSelect(
     },
   });
 
-  await dropConv(state.storeId, state.phone);
+  await dropConv(state.storeId, state.convKey);
 
   const dt = new Date(appt.startAt);
   const hora = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -1169,7 +1178,7 @@ async function handleSubscriptionStart(
   });
 
   if (plans.length === 0) {
-    await dropConv(state.storeId, state.phone);
+    await dropConv(state.storeId, state.convKey);
     return {
       reply: "No momento não temos clube de assinatura por aqui 😅 Mas posso te ajudar a agendar um horário! É só mandar *oi*.",
       aiMessageCounted: true,
@@ -1225,7 +1234,7 @@ async function handleSubClub(
     planPriceCents: selected.priceInCents,
   }).catch(() => {});
 
-  await dropConv(state.storeId, state.phone);
+  await dropConv(state.storeId, state.convKey);
 
   return {
     reply: `Show! 🎉 Anotei seu interesse no plano *${selected.name}* (${formatPrice(selected.priceInCents / 100)}/mês).\n\nA equipe da *${store.name}* vai te chamar pra combinar o pagamento e ativar sua assinatura. 😊\n\nEnquanto isso, posso te ajudar a agendar — é só mandar *oi*!`,
