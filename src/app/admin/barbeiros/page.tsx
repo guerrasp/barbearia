@@ -18,6 +18,7 @@ import {
   XCircle,
   Clock,
   CalendarX,
+  KeyRound,
   X as XIcon,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -73,6 +74,38 @@ export default function BarbeirosPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Barber | null>(null);
   const [tab, setTab] = useState<"data" | "hours" | "blocks">("data");
+
+  // Modal "Criar acesso" do barbeiro (login próprio)
+  const [accessBarber, setAccessBarber] = useState<Barber | null>(null);
+  const [accessEmail, setAccessEmail] = useState("");
+  const [accessPassword, setAccessPassword] = useState("");
+  const [accessSaving, setAccessSaving] = useState(false);
+
+  const handleCreateAccess = async () => {
+    if (!store || !accessBarber) return;
+    if (!/\S+@\S+\.\S+/.test(accessEmail) || accessPassword.length < 8) {
+      toast.error("Informe um email válido e senha de pelo menos 8 caracteres");
+      return;
+    }
+    setAccessSaving(true);
+    try {
+      await api.post("/barbeiros/invite", {
+        storeId: store.id,
+        barberId: accessBarber.id,
+        email: accessEmail.trim(),
+        password: accessPassword,
+      });
+      toast.success(`Acesso criado para ${accessBarber.name}!`);
+      setAccessBarber(null);
+      setAccessEmail("");
+      setAccessPassword("");
+      fetchBarbers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar acesso");
+    } finally {
+      setAccessSaving(false);
+    }
+  };
 
   const {
     register,
@@ -238,6 +271,23 @@ export default function BarbeirosPage() {
               >
                 <Edit2 className="w-4 h-4" /> Editar
               </Button>
+              {b.userId ? (
+                <span
+                  className="p-2 rounded-lg text-emerald-600 inline-flex items-center"
+                  title="Este barbeiro já tem acesso próprio"
+                >
+                  <KeyRound className="w-4 h-4" />
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setAccessBarber(b); setAccessEmail(""); setAccessPassword(""); }}
+                  className="p-2 rounded-lg hover:bg-background text-muted hover:text-primary transition-colors"
+                  title="Criar acesso (login) para este barbeiro"
+                  aria-label="Criar acesso"
+                >
+                  <KeyRound className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => handleDelete(b)}
                 className="p-2 rounded-lg hover:bg-background text-muted hover:text-danger transition-colors"
@@ -370,6 +420,44 @@ export default function BarbeirosPage() {
         {editing && tab === "blocks" && (
           <TimeBlocksEditor barberId={editing.id} onSaved={fetchBarbers} />
         )}
+      </Modal>
+
+      {/* Modal: Criar acesso (login) do barbeiro */}
+      <Modal
+        isOpen={!!accessBarber}
+        onClose={() => setAccessBarber(null)}
+        title={accessBarber ? `Criar acesso — ${accessBarber.name}` : "Criar acesso"}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted bg-primary/5 rounded-lg p-3 border border-primary/10">
+            <KeyRound className="w-4 h-4 inline mr-1 text-primary" />
+            O barbeiro vai usar este email e senha para entrar no painel e ver
+            <strong> só a própria agenda</strong>. Você define a senha e passa
+            pra ele (não enviamos email).
+          </p>
+          <Input
+            label="Email do barbeiro"
+            type="email"
+            placeholder="barbeiro@email.com"
+            value={accessEmail}
+            onChange={(e) => setAccessEmail(e.target.value)}
+          />
+          <Input
+            label="Senha (mín. 8 caracteres)"
+            type="text"
+            placeholder="Defina uma senha"
+            value={accessPassword}
+            onChange={(e) => setAccessPassword(e.target.value)}
+          />
+          <div className="flex gap-3 pt-2 border-t border-border">
+            <Button onClick={handleCreateAccess} isLoading={accessSaving} className="flex-1">
+              <KeyRound className="w-4 h-4" /> Criar acesso
+            </Button>
+            <Button variant="secondary" onClick={() => setAccessBarber(null)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
