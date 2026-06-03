@@ -416,7 +416,7 @@ async function handleAiScheduling(
   barbers: { id: string; name: string }[],
 ): Promise<ChatbotResult> {
   // Encontra serviço pelo nome (fuzzy)
-  let service = parsed.serviceName
+  const service = parsed.serviceName
     ? services.find((s) => s.name.toLowerCase().includes(parsed.serviceName!.toLowerCase()))
     : null;
 
