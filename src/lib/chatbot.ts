@@ -633,9 +633,22 @@ async function handleChooseService(
     orderBy: { name: "asc" },
   });
 
-  const selected = pickByNumberOrName(text, services);
+  let selected = pickByNumberOrName(text, services);
+  // IA de reserva: se o match literal falhar, deixa a IA interpretar
+  // ("corte e barba", "só o cabelo", "fazer a barba", etc.)
+  if (!selected && isAiEnabled()) {
+    const parsed = await parseIntent(text, { storeName: store.name, services: services.map((s) => s.name), barbers: [] });
+    if (parsed.serviceName) {
+      const sn = parsed.serviceName.toLowerCase();
+      selected =
+        services.find((s) => s.name.toLowerCase().includes(sn)) ||
+        services.find((s) => sn.includes(s.name.toLowerCase())) ||
+        null;
+    }
+  }
   if (!selected) {
-    return { reply: `Não encontrei esse serviço. Digite o número (1 a ${services.length}) ou o nome, ou "0" para voltar.`, aiMessageCounted: true };
+    const opts = naturalJoin(services.map((s) => `*${s.name}*`));
+    return { reply: `Hmm, não peguei qual serviço 😅 Temos ${opts}. Qual você quer?`, aiMessageCounted: true };
   }
 
   // Carrega barbeiros
@@ -683,10 +696,21 @@ async function handleChooseBarber(
   const lower = text.toLowerCase().trim();
   const anyBarber = /(tanto faz|qualquer|qualquer um|voc[eê] escolhe|pode ser qualquer|n[ãa]o importa)/.test(lower);
 
-  const selected = anyBarber ? barbers[0] : pickByNumberOrName(text, barbers);
+  let selected = anyBarber ? barbers[0] : pickByNumberOrName(text, barbers);
+  // IA de reserva: interpreta apelidos/variações do nome do barbeiro
+  if (!selected && isAiEnabled()) {
+    const parsed = await parseIntent(text, { storeName: store.name, services: [], barbers: barbers.map((b) => b.name) });
+    if (parsed.barberName) {
+      const bn = parsed.barberName.toLowerCase();
+      selected =
+        barbers.find((b) => b.name.toLowerCase().includes(bn)) ||
+        barbers.find((b) => bn.includes(b.name.toLowerCase())) ||
+        null;
+    }
+  }
   if (!selected) {
-    const nomes = naturalJoin(barbers.map((b) => b.name));
-    return { reply: `Hmm, não achei esse barbeiro 😅 Pode ser com ${nomes}. Qual você prefere?`, aiMessageCounted: true };
+    const nomes = naturalJoin(barbers.map((b) => `*${b.name}*`));
+    return { reply: `Hmm, não achei esse barbeiro 😅 Pode ser com ${nomes}. Qual você prefere? (ou diz "tanto faz")`, aiMessageCounted: true };
   }
 
   await saveConv({
