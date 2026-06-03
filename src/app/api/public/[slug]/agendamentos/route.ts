@@ -6,6 +6,7 @@ import { getTrialStatus } from "@/lib/trial";
 import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { normalizePhoneBR } from "@/lib/utils";
 
 const schema = z.object({
   barberId: z.string().min(1),
@@ -94,8 +95,8 @@ export async function POST(
       const issue = await checkAvailability({ barberId: data.barberId, startAt, endAt, tx });
       if (issue) throw Object.assign(new Error(issue.message), { issue, status: 409 });
 
-      // Upsert customer por (storeId, phone) — se já existir, reutiliza
-      const phoneDigits = data.customer.phone.replace(/\D/g, "");
+      // Upsert customer por (storeId, phone normalizado) — se já existir, reutiliza
+      const phoneDigits = normalizePhoneBR(data.customer.phone);
       let customer = await tx.customer.findFirst({
         where: { storeId: store.id, phone: phoneDigits },
       });

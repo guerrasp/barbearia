@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminForStore } from "@/lib/auth-server";
+import { normalizePhoneBR } from "@/lib/utils";
 
 const customerSchema = z.object({
   name: z.string().min(2),
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
       data: {
         name: data.name,
         email: data.email || null,
-        phone: data.phone || null,
+        phone: data.phone ? normalizePhoneBR(data.phone) : null,
         cpf: data.cpf || null,
         address: data.address || null,
         city: data.city || null,

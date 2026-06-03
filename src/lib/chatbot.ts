@@ -3,6 +3,7 @@ import { getAvailableSlots, checkAvailability, generateAppointmentCode } from "@
 import { limitsFor } from "@/lib/plan-limits";
 import { parseIntent, isAiEnabled, generateReply, type AiParsedIntent } from "@/lib/ai-chatbot";
 import { notifySubscriptionInterest } from "@/lib/notifications";
+import { normalizePhoneBR } from "@/lib/utils";
 
 /**
  * Chatbot WhatsApp — state machine por conversa.
@@ -890,7 +891,7 @@ async function finalizeBooking(
     return { reply: `Esse horário acabou de ser ocupado 😕 Quer tentar outro?`, aiMessageCounted: true };
   }
 
-  const phoneDigits = state.phone.replace(/\D/g, "");
+  const phoneDigits = normalizePhoneBR(state.phone);
   const customer = await prisma.customer.findFirst({
     where: { storeId: store.id, phone: phoneDigits },
   });
@@ -974,7 +975,7 @@ async function handleAskName(
   }
 
   // Cria/atualiza o cliente com o nome informado
-  const phoneDigits = state.phone.replace(/\D/g, "");
+  const phoneDigits = normalizePhoneBR(state.phone);
   const existing = await prisma.customer.findFirst({
     where: { storeId: store.id, phone: phoneDigits },
   });
@@ -1018,7 +1019,7 @@ async function handleMyAppointments(
   state: ConversationState,
   _text: string,
 ): Promise<ChatbotResult> {
-  const phoneDigits = state.phone.replace(/\D/g, "");
+  const phoneDigits = normalizePhoneBR(state.phone);
   const customer = await prisma.customer.findFirst({
     where: { storeId: store.id, phone: phoneDigits },
     select: { id: true },
@@ -1069,7 +1070,7 @@ async function handleCancelStart(
   store: { id: string; name: string },
   state: ConversationState,
 ): Promise<ChatbotResult> {
-  const phoneDigits = state.phone.replace(/\D/g, "");
+  const phoneDigits = normalizePhoneBR(state.phone);
   const customer = await prisma.customer.findFirst({
     where: { storeId: store.id, phone: phoneDigits },
     select: { id: true },
@@ -1218,7 +1219,7 @@ async function handleSubClub(
   }
 
   // Busca o nome do cliente (se já cadastrado) para a notificação
-  const phoneDigits = state.phone.replace(/\D/g, "");
+  const phoneDigits = normalizePhoneBR(state.phone);
   const customer = await prisma.customer.findFirst({
     where: { storeId: store.id, phone: phoneDigits },
     select: { name: true },

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminForStore } from "@/lib/auth-server";
+import { normalizePhoneBR } from "@/lib/utils";
 
 /** Carrega cliente + storeId pra autorizar. Retorna null se 404. */
 async function loadCustomerStore(id: string) {
@@ -134,7 +135,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       data: {
         name: body.name,
         email: body.email || null,
-        phone: body.phone || null,
+        phone: body.phone ? normalizePhoneBR(body.phone) : null,
         cpf: body.cpf || null,
         address: body.address || null,
         city: body.city || null,

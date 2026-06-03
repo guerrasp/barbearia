@@ -49,6 +49,25 @@ export function maskPhoneBR(value: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
 }
 
+/**
+ * Normaliza um telefone brasileiro para o formato canônico E.164 sem o "+":
+ * 55 + DDD + número (ex: "5513992086780"). Usado em TODOS os pontos que
+ * gravam/consultam telefone de cliente, pra não duplicar cadastro (chatbot
+ * grava com 55, página pública às vezes sem). Heurística por comprimento:
+ *  - 13 ou 12 dígitos começando com 55 → já está em E.164, mantém
+ *  - 10 ou 11 dígitos (DDD + número local) → adiciona o 55
+ *  - resto → retorna como veio (best-effort)
+ */
+export function normalizePhoneBR(raw: string | null | undefined): string {
+  if (!raw) return "";
+  let d = String(raw).replace(/\D/g, "");
+  if (!d) return "";
+  d = d.replace(/^0+/, ""); // remove zeros à esquerda
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) return d;
+  if (d.length === 10 || d.length === 11) return "55" + d;
+  return d;
+}
+
 export function calculateProfitMargin(costPrice: number, salePrice: number): number {
   if (costPrice === 0) return 0;
   return Number((((salePrice - costPrice) / costPrice) * 100).toFixed(2));
