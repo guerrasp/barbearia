@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleIncomingMessage } from "@/lib/chatbot";
+import { handleSupportMessage, KORTA_SUPPORT_STORE_ID } from "@/lib/korta-agent";
 import { prisma } from "@/lib/prisma";
 import { limitsFor } from "@/lib/plan-limits";
 
@@ -9,12 +10,16 @@ export const runtime = "nodejs";
 const WHATSAPP_SERVER = process.env.WHATSAPP_SERVER_URL || "";
 const WHATSAPP_API_KEY = process.env.WHATSAPP_API_KEY || "";
 const CHATBOT_API_KEY = process.env.WHATSAPP_API_KEY || ""; // mesma key do servidor WhatsApp
+const ESCALATION_PHONE = process.env.KORTA_ESCALATION_PHONE || "";
 
 /**
  * POST /api/chatbot/incoming
  *
  * Recebe mensagens do whatsapp-server.js (webhook).
- * Processa via state machine e responde de volta.
+ *
+ * Duas funções:
+ *  1) storeId normal  → chatbot de agendamento da barbearia (state machine)
+ *  2) storeId = "korta-support" → agente de suporte/vendas do Korta (conversacional)
  *
  * Body: { storeId, phone, text, messageId }
  * Headers: X-API-Key (mesma do servidor WhatsApp)
@@ -29,8 +34,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { storeId, phone, text } = body;
-    // convKey = chave estável da conversa (remoteJid); replyJid = pra onde responder.
-    // Fallback pra retrocompatibilidade com versões antigas do servidor WhatsApp.
     const convKey: string = body.convKey || phone;
     const replyJid: string = body.replyJid || phone;
 
@@ -38,6 +41,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "storeId, convKey e text obrigatórios" }, { status: 400 });
     }
 
+    // ── Rota: Agente de suporte/vendas do Korta ──────────
+    if (storeId === KORTA_SUPPORT_STORE_ID) {
+      return handleKortaSupport(convKey, phone, text, replyJid);
+    }
+
+    // ── Rota: Chatbot da barbearia (fluxo existente) ─────
     // Verifica o plano da loja e limite de mensagens
     const store = await prisma.store.findUnique({
       where: { id: storeId },
@@ -50,7 +59,6 @@ export async function POST(req: NextRequest) {
 
     const limits = limitsFor(store.plan);
     if (limits.aiMessagesPerMonth === 0) {
-      // Plano não tem chatbot — ignora silenciosamente
       return NextResponse.json({ skipped: "plan_no_chatbot" });
     }
 
@@ -68,7 +76,6 @@ export async function POST(req: NextRequest) {
       });
 
       if (monthCount >= limits.aiMessagesPerMonth) {
-        // Limite atingido — envia mensagem avisando
         await sendWhatsAppReply(storeId, replyJid,
           "O limite de atendimento automático deste mês foi atingido. " +
           "Entre em contato diretamente com a barbearia para agendar. " +
@@ -99,6 +106,43 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("[chatbot/incoming]", error);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}
+
+// ── Agente de suporte/vendas do Korta ─────────────────────────
+async function handleKortaSupport(
+  convKey: string,
+  phone: string,
+  text: string,
+  replyJid: string,
+) {
+  try {
+    const result = await handleSupportMessage(convKey, phone, text);
+
+    // Envia resposta ao cliente
+    await sendWhatsAppReply(KORTA_SUPPORT_STORE_ID, replyJid, result.reply);
+
+    // Se escalou, notifica o dono do Korta
+    if (result.escalated && ESCALATION_PHONE) {
+      const notification =
+        `🔴 *Escalação de suporte*\n\n` +
+        `📱 Telefone: ${phone || convKey}\n` +
+        `💬 Última msg: "${text.substring(0, 100)}"\n\n` +
+        `Responda diretamente pelo WhatsApp do cliente.`;
+
+      const escalationJid = ESCALATION_PHONE.replace(/\D/g, "") + "@s.whatsapp.net";
+      await sendWhatsAppReply(KORTA_SUPPORT_STORE_ID, escalationJid, notification);
+    }
+
+    return NextResponse.json({ sent: true, agent: "korta-support", escalated: result.escalated });
+  } catch (error) {
+    console.error("[korta-support]", error);
+    // Fallback: responde algo mesmo em caso de erro
+    await sendWhatsAppReply(KORTA_SUPPORT_STORE_ID, replyJid,
+      "Olá! Desculpe, estou com uma dificuldade técnica no momento. " +
+      "Acesse korta.ia.br para mais informações ou tente novamente em instantes. 🙏"
+    );
+    return NextResponse.json({ error: "Erro no agente" }, { status: 500 });
   }
 }
 
