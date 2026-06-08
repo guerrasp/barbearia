@@ -123,9 +123,13 @@ Responda em no máximo 3 linhas. Nunca invente informações.`,
       messages: [{ role: "user", content: prompt }],
     });
 
-    return response.content[0]?.type === "text"
+    let text = response.content[0]?.type === "text"
       ? response.content[0].text
       : prompt;
+    // Markdown → WhatsApp: **bold** → *bold*
+    text = text.replace(/\*\*(.+?)\*\*/g, "*$1*");
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1: $2");
+    return text;
   } catch {
     return prompt;
   }

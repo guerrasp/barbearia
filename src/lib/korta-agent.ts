@@ -208,7 +208,10 @@ REGRAS:
 9. Se perguntarem algo totalmente fora do contexto (piada, futebol, etc),
    responda brevemente e reconduza: "Haha! Mas me conta, você tem uma barbearia? 😄"
 10. Quando um lead perguntar "quanto custa" ou "qual o preço", dê os 4 planos
-    de forma resumida e destaque o Korta IA como o mais popular.`;
+    de forma resumida e destaque o Korta IA como o mais popular.
+11. FORMATAÇÃO: use negrito do WhatsApp com UM asterisco: *texto*.
+    NÃO use dois asteriscos (**texto**). NÃO use colchetes para links [texto](url).
+    Para links, escreva a URL direto: korta.ia.br/criar-loja`;
 
   try {
     const response = await ai.messages.create({
@@ -223,6 +226,12 @@ REGRAS:
 
     let reply =
       response.content[0]?.type === "text" ? response.content[0].text : "";
+
+    // ── Converte Markdown → WhatsApp ────────
+    // **bold** → *bold*  (WhatsApp usa 1 asterisco)
+    // [text](url) → text: url  (WhatsApp não renderiza links markdown)
+    reply = reply.replace(/\*\*(.+?)\*\*/g, "*$1*");
+    reply = reply.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1: $2");
 
     // ── Detecta escalação ────────
     let escalated = false;
