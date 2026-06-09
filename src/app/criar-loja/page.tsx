@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 import { maskPhoneBR } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import KortaLogo from "@/components/brand/KortaLogo";
@@ -47,6 +48,13 @@ const PLAN_LABELS: Record<PlanKey, string> = {
   PRO: "Pro",
   BUSINESS: "Business",
   KORTA_IA: "Korta IA",
+};
+// Valor mensal (R$) por plano — usado no evento de conversão do Meta Pixel.
+const PLAN_VALUE: Record<PlanKey, number> = {
+  FREE: 39.9,
+  PRO: 69.9,
+  BUSINESS: 99.9,
+  KORTA_IA: 149.9,
 };
 
 export default function CriarLojaPage() {
@@ -147,6 +155,12 @@ export default function CriarLojaPage() {
         // final com "Faça login" e poderá entrar manualmente.
         console.error("Auto-login pós-onboarding falhou:", loginErr);
       }
+      // Conversão Meta Ads: cadastro de loja concluído
+      trackMetaEvent("CompleteRegistration", {
+        content_name: plan,
+        currency: "BRL",
+        value: PLAN_VALUE[plan] ?? 0,
+      });
       setDone({ slug: res.store.slug, storeName: res.store.name });
       setStep(3);
     } catch (e) {
@@ -285,7 +299,11 @@ export default function CriarLojaPage() {
 
               <div className="flex items-center justify-end pt-2">
                 <Button
-                  onClick={() => setStep(2)}
+                  onClick={() => {
+                    // Conversão Meta Ads: começou o cadastro (interesse)
+                    trackMetaEvent("Lead", { content_name: plan });
+                    setStep(2);
+                  }}
                   disabled={!canStep1}
                   className="!bg-korta-gold hover:!bg-korta-gold-hover !text-korta-bg !font-semibold"
                 >

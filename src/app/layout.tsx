@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
+import MetaPixel from "@/components/analytics/MetaPixel";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Korta — Agendamento para barbearias",
     description: "Seu horário na barbearia em poucos toques. Sem ligação, sem fila.",
-    url: "https://korta.vercel.app",
+    url: "https://korta.ia.br",
     siteName: "Korta",
     images: [
       {
@@ -61,6 +62,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen antialiased">
+        <MetaPixel />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
