@@ -29,6 +29,23 @@ const nextConfig: NextConfig = {
         : []),
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // SAMEORIGIN (e não DENY) pra não quebrar um eventual embed
+          // futuro da página de agendamento no site da própria barbearia.
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // câmera liberada pro próprio site (leitor de QR no admin)
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

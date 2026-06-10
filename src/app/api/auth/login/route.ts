@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/rate-limit";
 
 // POST - Login
 export async function POST(req: NextRequest) {
+  // Mitiga força bruta de senha por IP
+  const limited = rateLimit(req, { limit: 10, windowMs: 60_000, prefix: "login" });
+  if (limited) return limited;
+
   try {
     const { email, password } = await req.json();
 

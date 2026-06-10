@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { RESERVED_SLUGS, normalizeSlug } from "@/lib/slugs";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 60, windowMs: 60_000, prefix: "check-slug" });
+  if (limited) return limited;
+
   const raw = req.nextUrl.searchParams.get("slug")?.trim() ?? "";
   if (!raw) {
     return NextResponse.json({ available: false, reason: "empty" }, { status: 200 });

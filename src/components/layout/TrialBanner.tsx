@@ -36,28 +36,29 @@ export default function TrialBanner() {
   useEffect(() => {
     if (!storeId) return;
 
-    // Cache de 5min no sessionStorage pra evitar fetch em toda navegação
+    let cancelled = false;
     const cacheKey = `trial:${storeId}`;
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) {
+
+    async function load(): Promise<PlanInfo> {
+      // Cache de 5min no sessionStorage pra evitar fetch em toda navegação
       try {
-        const { data, ts } = JSON.parse(cached);
-        if (Date.now() - ts < 5 * 60 * 1000) {
-          setInfo(data);
-          return;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, ts } = JSON.parse(cached);
+          if (Date.now() - ts < 5 * 60 * 1000) return data;
         }
       } catch {}
+
+      const data = await api.get<PlanInfo>(`/stores/${storeId}/plan`);
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+      } catch {}
+      return data;
     }
 
-    let cancelled = false;
-    api
-      .get<PlanInfo>(`/stores/${storeId}/plan`)
+    load()
       .then((data) => {
-        if (cancelled) return;
-        setInfo(data);
-        try {
-          sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
-        } catch {}
+        if (!cancelled) setInfo(data);
       })
       .catch(() => {
         // Silencioso — banner não é critico

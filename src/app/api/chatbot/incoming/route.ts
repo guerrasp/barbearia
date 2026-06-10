@@ -110,6 +110,12 @@ export async function POST(req: NextRequest) {
 }
 
 // ── Agente de suporte/vendas do Korta ─────────────────────────
+
+// Teto diário de respostas IA por conversa — protege contra spam que
+// queimaria créditos da Anthropic. 80 msgs/dia é muito acima de qualquer
+// conversa legítima de venda/suporte.
+const KORTA_SUPPORT_DAILY_LIMIT = 80;
+
 async function handleKortaSupport(
   convKey: string,
   phone: string,
@@ -117,7 +123,36 @@ async function handleKortaSupport(
   replyJid: string,
 ) {
   try {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const todayCount = await prisma.chatbotMessage.count({
+      where: {
+        storeId: KORTA_SUPPORT_STORE_ID,
+        phone: convKey,
+        createdAt: { gte: dayStart },
+      },
+    });
+
+    if (todayCount >= KORTA_SUPPORT_DAILY_LIMIT) {
+      // Avisa uma única vez (o aviso também é logado e incrementa o
+      // contador, então as mensagens seguintes ficam em silêncio).
+      if (todayCount === KORTA_SUPPORT_DAILY_LIMIT) {
+        await sendWhatsAppReply(KORTA_SUPPORT_STORE_ID, replyJid,
+          "Você atingiu o limite de mensagens de hoje. " +
+          "Amanhã podemos continuar, ou acesse korta.ia.br 🙏"
+        );
+        await prisma.chatbotMessage.create({
+          data: { storeId: KORTA_SUPPORT_STORE_ID, phone: convKey, direction: "BOT_REPLY" },
+        }).catch(() => {});
+      }
+      return NextResponse.json({ skipped: "daily_limit", todayCount });
+    }
+
     const result = await handleSupportMessage(convKey, phone, text);
+
+    await prisma.chatbotMessage.create({
+      data: { storeId: KORTA_SUPPORT_STORE_ID, phone: convKey, direction: "BOT_REPLY" },
+    }).catch(() => {}); // best-effort
 
     // Envia resposta ao cliente
     await sendWhatsAppReply(KORTA_SUPPORT_STORE_ID, replyJid, result.reply);

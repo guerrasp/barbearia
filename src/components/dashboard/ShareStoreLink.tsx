@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import Card from "@/components/ui/Card";
 import { Copy, Check, Share2, MessageCircle } from "lucide-react";
 import toast from "react-hot-toast";
@@ -14,6 +14,10 @@ import toast from "react-hot-toast";
  *  - Botão "Compartilhar" via navigator.share quando disponível
  *    (mobile sobe sheet nativo com Instagram/X/etc; desktop esconde)
  */
+// Valores fixos do ambiente do browser — useSyncExternalStore lê direto
+// no client e usa o fallback no server, sem setState pós-mount.
+const emptySubscribe = () => () => {};
+
 export default function ShareStoreLink({
   slug,
   storeName,
@@ -21,16 +25,17 @@ export default function ShareStoreLink({
   slug: string;
   storeName: string;
 }) {
-  const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
-  const [canNativeShare, setCanNativeShare] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-      setCanNativeShare(typeof navigator !== "undefined" && !!navigator.share);
-    }
-  }, []);
+  const origin = useSyncExternalStore(
+    emptySubscribe,
+    () => window.location.origin,
+    () => "",
+  );
+  const canNativeShare = useSyncExternalStore(
+    emptySubscribe,
+    () => !!navigator.share,
+    () => false,
+  );
 
   const url = useMemo(
     () => (origin ? `${origin}/agendar/${slug}` : `/agendar/${slug}`),

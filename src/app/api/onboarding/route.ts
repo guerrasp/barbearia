@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { RESERVED_SLUGS } from "@/lib/slugs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { computeTrialDeadline } from "@/lib/trial";
+import { rateLimit } from "@/lib/rate-limit";
 
 const onboardingSchema = z.object({
   storeName: z.string().min(2).max(60),
@@ -38,6 +39,10 @@ const DEFAULT_HOURS = [
 ];
 
 export async function POST(req: NextRequest) {
+  // Criação de loja + usuário Supabase é cara — limita bots de cadastro em massa
+  const limited = rateLimit(req, { limit: 5, windowMs: 60 * 60_000, prefix: "onboarding" });
+  if (limited) return limited;
+
   let supabaseUserId: string | null = null;
   try {
     const body = await req.json();
